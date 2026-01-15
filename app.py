@@ -21,6 +21,25 @@ TEMP_FILES = {}
 JOB_QUEUE = queue.Queue()
 IS_WORKER_BUSY = False
 
+def cleanup_jobs():
+    """Removes jobs and temp files older than 24 hours."""
+    now = time.time()
+    cutoff = now - (24 * 3600)  # 24 hours ago
+
+    # Identify old jobs
+    to_delete = []
+    for jid, job in JOBS.items():
+        if job.get('created_at', 0) < cutoff:
+            to_delete.append(jid)
+
+    for jid in to_delete:
+        print(f"Cleaning up old job {jid}", flush=True)
+        del JOBS[jid]
+        # Remove associated temp files
+        keys_to_remove = [k for k in TEMP_FILES.keys() if k.startswith(jid)]
+        for k in keys_to_remove:
+            del TEMP_FILES[k]
+
 def worker_loop():
     global IS_WORKER_BUSY
     print("Worker thread started...", flush=True)
@@ -34,7 +53,16 @@ def worker_loop():
             
             if job_id in JOBS:
                 JOBS[job_id]['status'] = 'running'
-                
+
+            # Helper to update progress in memory
+            def tracker(data):
+                if job_id in JOBS:
+                    if isinstance(data, str):
+                        # print(f"Job {job_id} log: {data}", flush=True)
+                        pass
+                    elif isinstance(data, dict):
+                        JOBS[job_id]['progress'] = data
+
             try:
                 job_type = kwargs.pop('job_type', 'scrape')
                 
@@ -75,6 +103,8 @@ def worker_loop():
                 else:
                     # Normal scrape mode
                     # This now uses the persistent driver in x_scraper
+                    # Pass the tracker as progress_callback
+                    kwargs['progress_callback'] = tracker
                     stats = run_process(**kwargs)
                     
                     if stats:
@@ -132,6 +162,8 @@ def index():
         start_time = request.form.get('start_time')
         end_time = request.form.get('end_time')
 
+        cleanup_jobs() # Clean up old jobs when new one is requested
+
         job_id = str(uuid.uuid4())
         
         if scrape_mode == 'screenshot':
@@ -179,7 +211,11 @@ def index():
             }
         
         # Initial status queued
-        JOBS[job_id] = {'status': 'queued', 'result': None}
+        JOBS[job_id] = {
+            'status': 'queued',
+            'result': None,
+            'created_at': time.time()
+        }
         
         print(f"Queuing job {job_id}", flush=True)
         JOB_QUEUE.put((job_id, scrape_kwargs))
@@ -211,15 +247,19 @@ def job_status(job_id):
         'message': job.get('error', '')
     }
 
-    # Check for external progress file for screenshot jobs
-    progress_file = os.path.join(os.getcwd(), 'temp', f'progress_{job_id}.json')
-    if job['status'] == 'running' and os.path.exists(progress_file):
-        try:
-            with open(progress_file, 'r', encoding='utf-8') as f:
-                progress_data = json.load(f)
-                response['progress'] = progress_data
-        except:
-            pass
+    # Check for progress data in memory (for Python scrapes)
+    if 'progress' in job:
+        response['progress'] = job['progress']
+    else:
+        # Check for external progress file for screenshot jobs (Node.js)
+        progress_file = os.path.join(os.getcwd(), 'temp', f'progress_{job_id}.json')
+        if job['status'] == 'running' and os.path.exists(progress_file):
+            try:
+                with open(progress_file, 'r', encoding='utf-8') as f:
+                    progress_data = json.load(f)
+                    response['progress'] = progress_data
+            except:
+                pass
 
     return response
 
@@ -295,7 +335,11 @@ def start_word_generation():
         'links': links
     }
 
-    JOBS[new_job_id] = {'status': 'queued', 'result': None}
+    JOBS[new_job_id] = {
+        'status': 'queued',
+        'result': None,
+        'created_at': time.time()
+    }
     print(f"Queuing screenshot job {new_job_id}", flush=True)
     JOB_QUEUE.put((new_job_id, scrape_kwargs))
 

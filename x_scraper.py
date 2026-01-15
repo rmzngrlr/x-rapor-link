@@ -26,8 +26,8 @@ Keys = None
 ActionChains = None
 
 CONFIG_FILE = 'config.json'
-OUTPUT_FILE = 'links.xlsx'
-COOKIE_FILE = 'twitter_cookies.json'  # YENİ: Çerez dosyası
+OUTPUT_FILE = os.path.join(os.getcwd(), 'links.xlsx')
+COOKIE_FILE = os.path.join(os.getcwd(), 'twitter_cookies.json')  # YENİ: Çerez dosyası
 
 def load_config():
     """Loads configuration from the JSON file."""
@@ -364,7 +364,7 @@ def get_reply_info(article):
     except Exception as e:
         return False, None
 
-def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False):
+def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, progress_callback=None):
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
@@ -498,6 +498,13 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                             "Username": username_from_link
                         })
                         print(f"Found tweet: {t_datetime} - {link} (User: {username_from_link})", flush=True)
+
+                        if progress_callback:
+                            progress_callback({
+                                "type": "progress",
+                                "message": f"Tweetler toplanıyor: {len(collected_data)} adet",
+                                "count": len(collected_data)
+                            })
                 
                 elif t_datetime < start_datetime:
                     consecutive_old_tweets += 1
@@ -598,7 +605,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Error saving to Excel: {e}", flush=True)
         return False, [], None
 
-def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False):
+def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, progress_callback=None):
     global stop_requested
     stop_requested = False
     start_time_perf = time.time()
@@ -607,6 +614,10 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         if status_callback:
             status_callback(msg)
         print(msg, flush=True)
+
+    def report_progress(data):
+        if progress_callback:
+            progress_callback(data)
 
     start_datetime = parse_datetime(start_date_str, start_time_str)
     end_datetime = parse_datetime(end_date_str, end_time_str)
@@ -629,8 +640,17 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         for i, target in enumerate(targets):
             if stop_requested: break
             log(f"Scraping {scrape_mode} target: {target} ({i+1}/{len(targets)})...")
+
+            # Update target progress
+            report_progress({
+                "type": "target_update",
+                "current_target": i + 1,
+                "total_targets": len(targets),
+                "target_name": target
+            })
+
             try:
-                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies)
+                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, progress_callback=progress_callback)
                 if target_data:
                     # In profile mode, we want to keep the order per target, sorted by date
                     # In list mode, we might get mixed results, but we'll sort everything at the end
