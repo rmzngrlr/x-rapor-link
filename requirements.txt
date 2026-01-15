@@ -1,0 +1,5 @@
+flask
+selenium
+undetected-chromedriver
+openpyxl
+python-dateutil

@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "X Link Toplayıcı",
+  "short_name": "X Scraper",
+  "description": "X (Twitter) üzerinden belirlediğiniz kriterlere göre link toplayan araç.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8f9fa",
+  "theme_color": "#0078d7",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
