@@ -3,6 +3,7 @@ import json
 import getpass
 import random
 import os
+import re
 from datetime import datetime, timedelta
 from dateutil import parser
 
@@ -121,7 +122,28 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-infobars")
         try:
             DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir)
-             # Ensure consistent window size and Force Focus
+        except Exception as e:
+            # Handle Chrome version mismatch
+            if "version" in str(e).lower() and "session not created" in str(e).lower():
+                print(f"Driver version mismatch detected: {e}", flush=True)
+                match = re.search(r"Current browser version is (\d+)", str(e))
+                if match:
+                    version = int(match.group(1))
+                    print(f"Retrying with version_main={version}...", flush=True)
+                    try:
+                        DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, version_main=version)
+                    except Exception as retry_e:
+                        print(f"Retry failed: {retry_e}", flush=True)
+                        return None
+                else:
+                    print("Could not extract version number from error message.", flush=True)
+                    return None
+            else:
+                print(f"Failed to create driver: {e}", flush=True)
+                return None
+
+        # Ensure consistent window size and Force Focus
+        if DRIVER:
             try:
                 DRIVER.minimize_window()
                 time.sleep(0.5)
@@ -129,9 +151,6 @@ def get_or_create_driver(username, password):
                 DRIVER.set_window_size(1920, 1080) 
             except:
                 pass
-        except Exception as e:
-            print(f"Failed to create driver: {e}", flush=True)
-            return None
 
     # Ensure logged in
     if verify_login_and_refresh(DRIVER, username, password):
