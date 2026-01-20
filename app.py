@@ -75,6 +75,12 @@ def worker_loop():
                 else:
                     # Normal scrape mode
                     # This now uses the persistent driver in x_scraper
+                    # Pass progress_file path
+                    progress_file = os.path.join(os.getcwd(), 'temp', f'progress_{job_id}.json')
+                    # Ensure temp directory exists
+                    os.makedirs(os.path.dirname(progress_file), exist_ok=True)
+
+                    kwargs['progress_file'] = progress_file
                     stats = run_process(**kwargs)
                     
                     if stats:
@@ -211,7 +217,7 @@ def job_status(job_id):
         'message': job.get('error', '')
     }
 
-    # Check for external progress file for screenshot jobs
+    # Check for external progress file for ANY job type (scrape or screenshot)
     progress_file = os.path.join(os.getcwd(), 'temp', f'progress_{job_id}.json')
     if job['status'] == 'running' and os.path.exists(progress_file):
         try:

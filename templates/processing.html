@@ -93,25 +93,42 @@
                         const pContainer = document.getElementById('progressContainer');
                         if (pContainer) pContainer.style.display = 'block';
 
-                        const current = data.progress.current || 0;
-                        const total = data.progress.total || 1;
-                        const percent = Math.round((current / total) * 100);
+                        // Check if we have screenshot data (current/total) or scrape data (found/progress/status)
+                        if (data.progress.total) {
+                             // Screenshot mode structure
+                            const current = data.progress.current || 0;
+                            const total = data.progress.total || 1;
+                            const percent = Math.round((current / total) * 100);
 
-                        const pBar = document.getElementById('progressBar');
-                        pBar.style.width = percent + '%';
-                        pBar.innerText = percent + '%';
+                            const pBar = document.getElementById('progressBar');
+                            pBar.style.width = percent + '%';
+                            pBar.innerText = percent + '%';
 
-                        document.getElementById('progressInfo').innerText = `${current} / ${total}`;
+                            document.getElementById('progressInfo').innerText = `${current} / ${total}`;
 
-                        if (data.progress.last_url) {
-                            // Extract username if possible for better UX
-                            let display = data.progress.last_url;
-                            try {
-                                const parts = data.progress.last_url.split('/');
-                                if (parts.length > 3) display = '@' + parts[3];
-                            } catch(e){}
-                            // Use a badge for the username to make it pop
-                            document.getElementById('statusDesc').innerHTML = `Şu an işleniyor: <span class="badge bg-info text-dark">${display}</span>`;
+                            if (data.progress.last_url) {
+                                // Extract username if possible for better UX
+                                let display = data.progress.last_url;
+                                try {
+                                    const parts = data.progress.last_url.split('/');
+                                    if (parts.length > 3) display = '@' + parts[3];
+                                } catch(e){}
+                                // Use a badge for the username to make it pop
+                                document.getElementById('statusDesc').innerHTML = `Şu an işleniyor: <span class="badge bg-info text-dark">${display}</span>`;
+                            }
+                        } else {
+                            // Scrape mode structure
+                            const percent = data.progress.progress || 0;
+                            const statusMsg = data.progress.status || 'İşleniyor...';
+                            const found = data.progress.found || 0;
+
+                            const pBar = document.getElementById('progressBar');
+                            pBar.style.width = percent + '%';
+                            pBar.innerText = percent + '%';
+
+                            // For scrape, we show "Found: X" instead of "X / Y"
+                            document.getElementById('progressInfo').innerText = `Bulunan Tweet: ${found}`;
+                            document.getElementById('statusDesc').innerHTML = `<span class="badge bg-primary">${statusMsg}</span>`;
                         }
                     }
 

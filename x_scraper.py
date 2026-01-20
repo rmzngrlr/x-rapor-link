@@ -383,7 +383,28 @@ def get_reply_info(article):
     except Exception as e:
         return False, None
 
-def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False):
+def write_progress(filepath, percent, message, count=0):
+    """Writes progress status to a JSON file safely."""
+    if not filepath:
+        return
+    try:
+        data = {
+            "progress": percent,
+            "status": message,
+            "found": count
+        }
+        # Atomic write usually involves writing to a temp file and renaming,
+        # but for this simple use case, direct write is acceptable if we accept minor race conditions.
+        # We'll use a temp name just to be safer.
+        temp_path = filepath + ".tmp"
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+        os.replace(temp_path, filepath)
+    except Exception as e:
+        # Ignore errors to avoid interrupting the scrape
+        pass
+
+def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, progress_file=None):
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
@@ -416,7 +437,9 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     collected_links = set()
     collected_data = []
 
-    print(f"Collecting tweets between {start_datetime} and {end_datetime}...", flush=True)
+    msg = f"Collecting tweets between {start_datetime} and {end_datetime}..."
+    print(msg, flush=True)
+    write_progress(progress_file, 10, msg, 0)
 
     max_wait_time = 2.0
     max_stuck_retries = 15
@@ -429,6 +452,13 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
         if stop_requested:
             print("Stop requested. Breaking loop.", flush=True)
             break
+
+        # Update progress occasionally
+        # We don't have a total count, so we can't show real percent.
+        # But we can show "found" count and animate/pulse the bar or just keep it at a generic "working" state.
+        # Let's update count every loop.
+        current_count = len(collected_data)
+        write_progress(progress_file, 50, f"Processing... Found {current_count} tweets.", current_count)
 
         articles = driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
         
@@ -617,7 +647,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Error saving to Excel: {e}", flush=True)
         return False, [], None
 
-def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False):
+def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, progress_file=None):
     global stop_requested
     stop_requested = False
     start_time_perf = time.time()
@@ -649,7 +679,11 @@ def run_process(username, password, target_username, start_date_str, end_date_st
             if stop_requested: break
             log(f"Scraping {scrape_mode} target: {target} ({i+1}/{len(targets)})...")
             try:
-                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies)
+                # Calculate an approximate base progress
+                base_progress = int((i / len(targets)) * 90)
+                write_progress(progress_file, base_progress, f"Scraping target: {target}...", len(all_data))
+
+                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, progress_file)
                 if target_data:
                     # In profile mode, we want to keep the order per target, sorted by date
                     # In list mode, we might get mixed results, but we'll sort everything at the end
@@ -674,13 +708,23 @@ def run_process(username, password, target_username, start_date_str, end_date_st
                 log(f"Sorting error: {e}")
         
         log("Saving to Excel...")
+        write_progress(progress_file, 95, "Saving to Excel...", len(all_data))
+
         result_count, filtered_data, excel_obj = save_to_excel(all_data, output_file)
         
         if result_count is not False:
             elapsed_time = time.time() - start_time_perf
             log("Process completed successfully!")
+            write_progress(progress_file, 100, "Completed!", result_count)
             
             link_list = [item['Link'] for item in filtered_data] if filtered_data else []
+
+            # Cleanup progress file
+            if progress_file and os.path.exists(progress_file):
+                try:
+                    os.remove(progress_file)
+                except:
+                    pass
 
             return {
                 "count": result_count, 
