@@ -1,0 +1,353 @@
+/* --- App Container & Global --- */
+:root {
+  --panel-width: 320px;
+  --bg-color: #0f0f0f;
+  --surface-color: #1f1f1f;
+  --border-color: #333;
+  --text-primary: #fff;
+  --text-secondary: #aaa;
+  --accent-color: #ff0000;
+  --pinned-color: #ffd700;
+  --btn-hover: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden; /* CRITICAL: No global scroll */
+}
+
+.app-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* --- Control Panel --- */
+.control-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--panel-width);
+  background-color: var(--surface-color);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 20;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+}
+
+.control-panel.open {
+  transform: translateX(0);
+}
+
+.panel-header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panel-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Adds space between icon and text */
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon-btn, .close-btn, .panel-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover, .close-btn:hover, .panel-toggle-btn:hover {
+  background-color: var(--btn-hover);
+}
+
+.panel-toggle-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 15;
+  background-color: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  padding: 10px;
+  transition: opacity 0.2s;
+}
+
+/* Add Form */
+.add-form {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.input-group-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.text-input {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: #000;
+  color: #fff;
+  width: 100%;
+}
+
+.url-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-btn {
+  background-color: var(--text-primary);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  width: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-btn.update-btn {
+  background-color: var(--pinned-color);
+}
+
+.cancel-btn {
+  background-color: var(--btn-hover);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  width: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editing-label {
+    font-size: 0.8rem;
+    color: var(--pinned-color);
+    font-weight: bold;
+}
+
+.add-form.editing-mode {
+    background-color: rgba(255, 215, 0, 0.05);
+}
+
+.error-msg {
+  color: var(--accent-color);
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* Stream List (Sortable) */
+.stream-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.sortable-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stream-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: rgba(255,255,255,0.05);
+  margin-bottom: 8px;
+  border-radius: 4px;
+  gap: 10px;
+  cursor: grab;
+}
+
+.stream-item:active {
+  cursor: grabbing;
+  background-color: rgba(255,255,255,0.1);
+}
+
+.drag-handle-icon {
+  color: var(--text-secondary);
+  cursor: grab;
+}
+
+.stream-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stream-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-id {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.remove-btn {
+  color: #666;
+}
+
+.remove-btn:hover {
+  color: var(--accent-color);
+}
+
+.edit-btn {
+    color: #666;
+}
+
+.edit-btn:hover {
+    color: var(--text-primary);
+}
+
+.panel-footer {
+  padding: 15px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
+}
+
+
+/* --- Main Layout Container --- */
+.video-layout-container {
+  flex: 1;
+  background-color: #000;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* CRITICAL: No scroll inside main container */
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Centering the grid */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video-layout-container.panel-open {
+  margin-left: var(--panel-width);
+  width: calc(100vw - var(--panel-width));
+}
+
+
+/* --- AUTO GRID LAYOUT --- */
+.auto-grid-container {
+  display: grid;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  gap: 0; /* No gap between screens */
+  padding: 0;
+  background-color: #000;
+  /* Columns/Rows are set inline via style={} in App.jsx */
+}
+
+.video-cell {
+  position: relative;
+  background-color: #111;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+   We want the iframe/player to maintain 16:9 but fit within the cell.
+   The structure inside StreamPlayer typically has a .video-container or similar.
+   We need to target that generic structure.
+*/
+.stream-player-container {
+  /* This class should be added to the outer div in StreamPlayer component */
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.stream-player-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+
+.empty-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #333;
+}
