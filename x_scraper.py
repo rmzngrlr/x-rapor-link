@@ -141,7 +141,16 @@ def get_or_create_driver(username, password):
                     major_version = int(match.group(1))
                     print(f"Detected Chrome Major Version: {major_version}. Retrying with version_main={major_version}...", flush=True)
                     try:
-                        DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, version_main=major_version)
+                        # Re-create options to avoid 'cannot reuse ChromeOptions' error
+                        new_options = uc.ChromeOptions()
+                        new_options.add_argument("--start-maximized")
+                        new_options.add_argument("--disable-session-crashed-bubble")
+                        new_options.add_argument("--disable-background-timer-throttling")
+                        new_options.add_argument("--disable-backgrounding-occluded-windows")
+                        new_options.add_argument("--disable-renderer-backgrounding")
+                        new_options.add_argument("--disable-infobars")
+
+                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
                         try:
                             DRIVER.minimize_window()
                             time.sleep(0.5)
