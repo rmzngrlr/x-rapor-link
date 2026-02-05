@@ -50,7 +50,7 @@ app.post('/generate-word', async (req, res) => {
     if (!urls || !urls.length) return res.status(400).json({ error: 'Link yok.' });
 
     loadCookiesIntoMemory();
-    console.log(`${urls.length} link işleniyor... (Job: ${jobId})`);
+    console.log(`${urls.length} link işleniyor... (İş: ${jobId})`);
 
     // Helper to update progress
     const updateProgress = (current, total, lastUrl) => {

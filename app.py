@@ -28,14 +28,14 @@ IS_WORKER_BUSY = False
 
 def worker_loop():
     global IS_WORKER_BUSY
-    print("Worker thread started...", flush=True)
+    print("İşçi iş parçacığı başlatıldı...", flush=True)
     while True:
         try:
             # Blocking wait for next job
             job_id, kwargs = JOB_QUEUE.get()
             IS_WORKER_BUSY = True
             
-            print(f"Processing job {job_id}...", flush=True)
+            print(f"İş işleniyor {job_id}...", flush=True)
             
             if job_id in JOBS:
                 JOBS[job_id]['status'] = 'running'
@@ -46,7 +46,7 @@ def worker_loop():
                 if job_type == 'screenshot':
                     # Direct screenshot mode
                     links = kwargs.get('links', [])
-                    print(f"Job {job_id}: Processing {len(links)} screenshots via Node.js service...", flush=True)
+                    print(f"İş {job_id}: {len(links)} ekran görüntüsü Node.js servisi aracılığıyla işleniyor...", flush=True)
                     try:
                         start_time_perf = time.time()
                         # Call Node.js service
@@ -69,12 +69,12 @@ def worker_loop():
                             }
                             JOBS[job_id]['status'] = 'completed'
                             JOBS[job_id]['result'] = stats
-                            print(f"Job {job_id} completed (screenshots).", flush=True)
+                            print(f"İş {job_id} tamamlandı (ekran görüntüleri).", flush=True)
                         else:
-                            raise Exception(f"Node.js service error: {response.status_code} - {response.text}")
+                            raise Exception(f"Node.js servisi hatası: {response.status_code} - {response.text}")
                             
                     except Exception as node_err:
-                        print(f"Job {job_id} screenshot error: {node_err}")
+                        print(f"İş {job_id} ekran görüntüsü hatası: {node_err}")
                         raise node_err
                 
                 else:
@@ -86,21 +86,21 @@ def worker_loop():
                         stats['job_type'] = 'scrape'
                         JOBS[job_id]['status'] = 'completed'
                         JOBS[job_id]['result'] = stats
-                        print(f"Job {job_id} completed.", flush=True)
+                        print(f"İş {job_id} tamamlandı.", flush=True)
                     else:
                         JOBS[job_id]['status'] = 'failed'
                         JOBS[job_id]['error'] = "İşlem başarısız oldu (Giriş hatası veya veri yok)."
-                        print(f"Job {job_id} failed (no stats).", flush=True)
+                        print(f"İş {job_id} başarısız oldu (istatistik yok).", flush=True)
             except Exception as e:
                 JOBS[job_id]['status'] = 'failed'
                 JOBS[job_id]['error'] = str(e)
-                print(f"Job {job_id} exception: {e}", flush=True)
+                print(f"İş {job_id} hatası: {e}", flush=True)
             finally:
                 IS_WORKER_BUSY = False
                 JOB_QUEUE.task_done()
                 
         except Exception as e:
-            print(f"Worker loop fatal error: {e}", flush=True)
+            print(f"İşçi döngüsü kritik hata: {e}", flush=True)
             IS_WORKER_BUSY = False
 
 # Start worker thread
@@ -186,7 +186,7 @@ def index():
         # Initial status queued
         JOBS[job_id] = {'status': 'queued', 'result': None}
         
-        print(f"Queuing job {job_id}", flush=True)
+        print(f"İş sıraya alınıyor {job_id}", flush=True)
         JOB_QUEUE.put((job_id, scrape_kwargs))
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -301,7 +301,7 @@ def start_word_generation():
     }
 
     JOBS[new_job_id] = {'status': 'queued', 'result': None}
-    print(f"Queuing screenshot job {new_job_id}", flush=True)
+    print(f"Ekran görüntüsü işi sıraya alınıyor {new_job_id}", flush=True)
     JOB_QUEUE.put((new_job_id, scrape_kwargs))
 
     return redirect(url_for('processing', job_id=new_job_id))
