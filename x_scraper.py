@@ -3,6 +3,7 @@ import json
 import getpass
 import random
 import os
+import re
 from datetime import datetime, timedelta
 from dateutil import parser
 
@@ -130,8 +131,42 @@ def get_or_create_driver(username, password):
             except:
                 pass
         except Exception as e:
-            print(f"Failed to create driver: {e}", flush=True)
-            return None
+            # Check for version mismatch error
+            error_str = str(e)
+            if "This version of ChromeDriver only supports Chrome version" in error_str:
+                print(f"Version mismatch detected. Attempting to resolve... Error: {e}", flush=True)
+                # Extract "Current browser version is X.X.X.X"
+                match = re.search(r"Current browser version is (\d+)", error_str)
+                if match:
+                    major_version = int(match.group(1))
+                    print(f"Detected Chrome Major Version: {major_version}. Retrying with version_main={major_version}...", flush=True)
+                    try:
+                        # Re-create options to avoid 'cannot reuse ChromeOptions' error
+                        new_options = uc.ChromeOptions()
+                        new_options.add_argument("--start-maximized")
+                        new_options.add_argument("--disable-session-crashed-bubble")
+                        new_options.add_argument("--disable-background-timer-throttling")
+                        new_options.add_argument("--disable-backgrounding-occluded-windows")
+                        new_options.add_argument("--disable-renderer-backgrounding")
+                        new_options.add_argument("--disable-infobars")
+
+                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
+                        try:
+                            DRIVER.minimize_window()
+                            time.sleep(0.5)
+                            DRIVER.maximize_window()
+                            DRIVER.set_window_size(1920, 1080)
+                        except:
+                            pass
+                    except Exception as retry_e:
+                        print(f"Failed to create driver even with specific version: {retry_e}", flush=True)
+                        return None
+                else:
+                    print(f"Could not extract version from error message: {error_str}", flush=True)
+                    return None
+            else:
+                print(f"Failed to create driver: {e}", flush=True)
+                return None
 
     # Ensure logged in
     if verify_login_and_refresh(DRIVER, username, password):
