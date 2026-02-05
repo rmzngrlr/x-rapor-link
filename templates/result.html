@@ -26,7 +26,7 @@
                 
                 <div class="alert alert-light border">
                     <p class="mb-1"><strong>Toplanan Link Sayısı:</strong> {{ stats.count }}</p>
-                    <p class="mb-0"><strong>Geçen Süre:</strong> {{ "%.2f"|format(stats.time) }} saniye</p>
+                    <p class="mb-0"><strong>Geçen Süre:</strong> {{ stats.time }}</p>
                 </div>
 
                 {% if stats.gs_status %}

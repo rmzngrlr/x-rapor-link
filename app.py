@@ -26,6 +26,19 @@ TEMP_FILES = {}
 JOB_QUEUE = queue.Queue()
 IS_WORKER_BUSY = False
 
+def format_duration(seconds):
+    """Saniyeyi okunabilir süre formatına çevirir (X dakika Y saniye)."""
+    if not seconds:
+        return "0 saniye"
+
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+
+    if minutes > 0:
+        return f"{minutes} dakika {secs} saniye"
+    else:
+        return f"{secs} saniye"
+
 def worker_loop():
     global IS_WORKER_BUSY
     print("İşçi iş parçacığı başlatıldı...", flush=True)
@@ -55,6 +68,7 @@ def worker_loop():
                         
                         if response.status_code == 200:
                             elapsed_time = time.time() - start_time_perf
+                            formatted_time = format_duration(elapsed_time)
                             
                             # Save the file to memory
                             file_stream = io.BytesIO(response.content)
@@ -62,7 +76,7 @@ def worker_loop():
                             
                             stats = {
                                 "count": len(links),
-                                "time": elapsed_time,
+                                "time": formatted_time,
                                 "links": links,
                                 "word_file": file_stream,
                                 "job_type": 'screenshot'
@@ -83,6 +97,10 @@ def worker_loop():
                     stats = run_process(**kwargs)
                     
                     if stats:
+                        # x_scraper returns time as float in seconds, format it here
+                        if 'time' in stats:
+                            stats['time'] = format_duration(stats['time'])
+
                         stats['job_type'] = 'scrape'
                         JOBS[job_id]['status'] = 'completed'
                         JOBS[job_id]['result'] = stats

@@ -724,7 +724,7 @@ if __name__ == "__main__":
     config = load_config()
     if config:
         print("Eski CLI modu...", flush=True)
-        username = input("Username: ")
-        password = getpass.getpass("Password: ")
+        username = input("Kullanıcı Adı: ")
+        password = getpass.getpass("Şifre: ")
         target = config.get('target_username', '')
         run_process(username, password, target, config['start_date'], config['end_date'])
