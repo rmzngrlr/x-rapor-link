@@ -7,8 +7,13 @@ import queue
 import requests
 import io
 import time
+import logging
 from datetime import datetime
 from x_scraper import run_process, CONFIG_FILE
+
+# Werkzeug loglarını filtrele (Sadece hataları göster, GET/POST isteklerini gizle)
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
