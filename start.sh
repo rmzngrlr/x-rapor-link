@@ -9,7 +9,11 @@ cd ..
 
 # Start Python Flask server
 echo "Starting Python Flask server..."
-python3 app.py &
+if [ -d "venv" ]; then
+    ./venv/bin/python3 app.py &
+else
+    python3 app.py &
+fi
 PYTHON_PID=$!
 
 # Trap SIGINT and SIGTERM to kill both processes
