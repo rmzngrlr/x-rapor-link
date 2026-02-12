@@ -182,7 +182,10 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
 
     last_count = 0
     consecutive_no_change = 0
-    max_no_change = 10  # Increased max retries
+    max_no_change = 10  # Standard max retries
+
+    # Check for early exit if list is very small
+    # If first load has < 5 users, reduce max retries to avoid long wait
 
     while not STOP_REQUESTED:
         # Retweets usually open in a modal (dialog) or a dedicated page.
@@ -235,6 +238,12 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
             progress_callback(current_count)
         print(f"Users found: {current_count}")
 
+        # Adjust max retries dynamically based on count
+        if current_count < 5:
+            effective_max_retries = 3
+        else:
+            effective_max_retries = max_no_change
+
         if current_count == last_count:
             consecutive_no_change += 1
         else:
@@ -242,11 +251,13 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
 
         last_count = current_count
 
-        if consecutive_no_change >= max_no_change:
+        if consecutive_no_change >= effective_max_retries:
             print("No new users found for a while. Stopping scan.")
             break
 
-        # Scroll down
+        # Scroll logic with height check
+        old_height = driver.execute_script("return document.body.scrollHeight")
+
         # Try to find the last cell and scroll it into view (handles modals better)
         if cells:
             try:
@@ -257,6 +268,13 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
             driver.execute_script("window.scrollBy(0, 800);")
 
         time.sleep(2)
+
+        # Check if height changed (optional optimization, but X uses infinite scroll so height might stay same in virtual lists)
+        # But for short lists, it's useful.
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == old_height and current_count < 10:
+             # If height didn't change and we have few users, maybe we really are at the end
+             pass
 
         # Check for end of page
         # Sometimes X shows a spinner or just stops
