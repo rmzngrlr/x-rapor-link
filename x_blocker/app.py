@@ -4,6 +4,7 @@ import uuid
 import time
 import os
 import sys
+import random
 
 # Add current directory to path so we can import blocker_core
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -68,8 +69,9 @@ def block_task(job_id, users):
                 'last_user': user,
                 'status': res
             }
-            # Rate limit slightly to be safe
-            time.sleep(1)
+            # Rate limit slightly to be safe - Random delay between 2 to 5 seconds
+            # This helps avoid rate limiting or page loading issues
+            time.sleep(random.uniform(2.0, 5.0))
 
         JOBS[job_id]['status'] = 'completed'
     except Exception as e:

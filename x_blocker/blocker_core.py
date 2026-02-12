@@ -299,9 +299,33 @@ def block_user(driver, username):
         url = f"https://x.com/{username}"
         if driver.current_url != url:
             driver.get(url)
-            time.sleep(2)
+            # Wait for initial load
+            time.sleep(1)
 
-        wait = WebDriverWait(driver, 5)
+        wait = WebDriverWait(driver, 8)
+
+        # Page load check (Wait for profile header or empty state)
+        # If page stuck on loading (X logo), this will timeout and we can try refresh.
+        try:
+            wait.until(
+                lambda d: d.find_elements(By.CSS_SELECTOR, "[data-testid='UserProfileHeader_Items']") or
+                          d.find_elements(By.CSS_SELECTOR, "[data-testid='emptyState']") or
+                          d.find_elements(By.CSS_SELECTOR, "[data-testid='userActions']")
+            )
+        except:
+            print(f"Page load timeout for {username}. Refreshing...")
+            driver.refresh()
+            time.sleep(3)
+            # Try waiting one more time
+            try:
+                wait.until(
+                    lambda d: d.find_elements(By.CSS_SELECTOR, "[data-testid='UserProfileHeader_Items']") or
+                              d.find_elements(By.CSS_SELECTOR, "[data-testid='emptyState']") or
+                              d.find_elements(By.CSS_SELECTOR, "[data-testid='userActions']")
+                )
+            except:
+                print(f"Failed to load profile for {username} after refresh.")
+                return 'failed'
 
         # Check if already blocked immediately
         # X usually shows a "Blocked" button with data-testid corresponding to unblock action if blocked.
