@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Engelleyici</title>
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn-primary { background-color: #dc3545; border: none; } /* Red for block/danger feeling */
+        .btn-primary:hover { background-color: #bb2d3b; }
+    </style>
+</head>
+<body>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold">X Retweet Engelleyici</h2>
+                <p class="text-muted">Bir tweeti retweetleyen hesapları bul ve engelle.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="card p-4">
+                <form action="/scan" method="POST">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">Tweet Linki</label>
+                        <input type="text" class="form-control" id="url" name="url" placeholder="https://x.com/username/status/..." required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Taramayı Başlat</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="text-center mt-3">
+                <small class="text-muted">Not: Bu işlem tarayıcı otomasyonu kullanır. İşlem sırasında açılan tarayıcı penceresini kapatmayınız.</small>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

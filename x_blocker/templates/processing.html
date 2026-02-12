@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İşleniyor - X Engelleyici</title>
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .progress { height: 25px; }
+    </style>
+</head>
+<body>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card p-5 text-center">
+                <h3 class="mb-4" id="statusTitle">İşlem Başlatılıyor...</h3>
+
+                <div class="spinner-border text-danger mb-4" role="status" id="spinner">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+
+                <div class="progress mb-3 d-none" id="progressBarContainer">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" role="progressbar" style="width: 0%" id="progressBar">0%</div>
+                </div>
+
+                <p class="lead" id="statusText">Lütfen bekleyin...</p>
+                <p class="text-muted small" id="detailText"></p>
+
+                <div class="mt-4">
+                    <a href="/stop/{{ job_id }}" class="btn btn-outline-secondary btn-sm">İşlemi Durdur</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const jobId = "{{ job_id }}";
+    const statusTitle = document.getElementById('statusTitle');
+    const statusText = document.getElementById('statusText');
+    const detailText = document.getElementById('detailText');
+    const spinner = document.getElementById('spinner');
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    const progressBar = document.getElementById('progressBar');
+
+    function checkStatus() {
+        fetch(`/status/${jobId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'not_found') {
+                    alert('İşlem bulunamadı.');
+                    window.location.href = '/';
+                    return;
+                }
+
+                if (data.status === 'failed') {
+                    statusTitle.innerText = "Hata Oluştu";
+                    statusText.innerText = data.error || "Bilinmeyen bir hata.";
+                    spinner.classList.remove('spinner-border');
+                    spinner.innerHTML = "❌";
+                    return;
+                }
+
+                if (data.status === 'scan_completed') {
+                    window.location.href = data.redirect;
+                    return;
+                }
+
+                if (data.status === 'completed') {
+                    statusTitle.innerText = "Tamamlandı!";
+                    statusText.innerText = data.msg || "İşlem başarıyla tamamlandı.";
+                    spinner.classList.add('d-none');
+                    progressBarContainer.classList.add('d-none');
+                    detailText.innerText = "";
+                    setTimeout(() => { window.location.href = '/'; }, 3000);
+                    return;
+                }
+
+                // Running states
+                if (data.type === 'scan') {
+                    statusTitle.innerText = "Kullanıcılar Taranıyor...";
+                    if (data.progress) {
+                        statusText.innerText = `Bulunan Kullanıcı Sayısı: ${data.progress.count || 0}`;
+                    }
+                } else if (data.type === 'block') {
+                    statusTitle.innerText = "Kullanıcılar Engelleniyor...";
+                    spinner.classList.add('d-none');
+                    progressBarContainer.classList.remove('d-none');
+
+                    if (data.progress) {
+                        const current = data.progress.current;
+                        const total = data.progress.total;
+                        const percent = Math.round((current / total) * 100);
+
+                        progressBar.style.width = percent + "%";
+                        progressBar.innerText = percent + "%";
+
+                        statusText.innerText = `${current} / ${total} kullanıcı engellendi.`;
+                        if (data.progress.last_user) {
+                            detailText.innerText = `Son işlem: @${data.progress.last_user} (${data.progress.status})`;
+                        }
+                    }
+                }
+
+                setTimeout(checkStatus, 1000);
+            })
+            .catch(err => {
+                console.error(err);
+                setTimeout(checkStatus, 2000);
+            });
+    }
+
+    checkStatus();
+</script>
+</body>
+</html>
