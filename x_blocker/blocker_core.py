@@ -109,6 +109,40 @@ def get_driver():
         except Exception as e:
             print(f"Error loading cookies: {e}")
 
+    # Wait for manual login if needed
+    print("Checking login status...")
+    logged_in = False
+
+    # Check max 10 times (approx 30 seconds wait if not interacting, but loop allows manual interaction)
+    # Actually, we want to block until logged in or stopped.
+    # Giving user time to log in manually.
+
+    while not STOP_REQUESTED:
+        try:
+            # Check for home link or profile element
+            if DRIVER.find_elements(By.CSS_SELECTOR, "a[data-testid='AppTabBar_Home_Link']") or \
+               DRIVER.find_elements(By.CSS_SELECTOR, "[data-testid='SideNav_AccountSwitcher_Button']"):
+                print("Login detected.")
+                logged_in = True
+                break
+        except:
+            pass
+
+        print("Waiting for user to log in... Please log in to X.com in the browser window.")
+        time.sleep(3)
+
+        # If user closed browser
+        try:
+            _ = DRIVER.title
+        except:
+            print("Browser closed.")
+            DRIVER = None
+            return None
+
+    if not logged_in:
+        print("Login check loop ended without success.")
+        return None
+
     return DRIVER
 
 def scrape_retweeters(driver, tweet_url, progress_callback=None):
@@ -140,7 +174,8 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
     try:
         WebDriverWait(driver, 15).until(
             lambda d: d.find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']") or
-                      d.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
+                      d.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']") or
+                      d.find_elements(By.XPATH, "//div[@role='dialog']//div[@data-testid='UserCell']")
         )
     except:
         print("Timeout waiting for user list. Continuing to scrape anyway in case it loads slowly.")
@@ -150,10 +185,23 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
     max_no_change = 10  # Increased max retries
 
     while not STOP_REQUESTED:
-        # Try both selectors
-        cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']")
+        # Retweets usually open in a modal (dialog) or a dedicated page.
+        # Prioritize cells inside a dialog if present, otherwise grab generic cells.
+
+        cells = []
+        # Try finding dialog first
+        dialogs = driver.find_elements(By.XPATH, "//div[@role='dialog']")
+        if dialogs:
+            # If dialog exists, search specifically inside it to avoid scraping background elements (like original tweet author if visible)
+            cells = dialogs[0].find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']")
+            if not cells:
+                 cells = dialogs[0].find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
+
         if not cells:
-             cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
+            # Fallback to general page search if no dialog or dialog empty
+            cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']")
+            if not cells:
+                 cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
 
         for cell in cells:
             try:
