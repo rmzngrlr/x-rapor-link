@@ -136,8 +136,43 @@ def get_driver():
         except:
             pass
 
-        print("Waiting for user to log in... Please log in to X.com in the browser window.")
-        time.sleep(3)
+        # Add persistence logic: check if page is stuck on loading and refresh
+        try:
+            if "x.com" in DRIVER.current_url and not DRIVER.find_elements(By.CSS_SELECTOR, "[data-testid='primaryColumn']"):
+                 # Check for X logo loader which indicates loading
+                 # If we are just sitting on a black screen or logo for too long, refresh
+                 # We are in a loop with 3s sleep.
+                 pass
+        except:
+            pass
+
+        print("Waiting for login or page load... If stuck, refreshing in 10s...")
+
+        # Inner loop to handle refresh every ~10s if still not logged in and possibly stuck
+        for _ in range(3):
+            if STOP_REQUESTED: break
+            time.sleep(3)
+            # Recheck login inside loop
+            try:
+                if DRIVER.find_elements(By.CSS_SELECTOR, "a[data-testid='AppTabBar_Home_Link']"):
+                    logged_in = True
+                    break
+            except:
+                pass
+
+        if logged_in: break
+
+        # If still here, maybe try to go to home or refresh
+        try:
+            if "x.com" not in DRIVER.current_url:
+                 DRIVER.get("https://x.com/home")
+            else:
+                 print("Page might be stuck. Refreshing...")
+                 DRIVER.refresh()
+        except Exception as e:
+            print(f"Browser interaction error: {e}")
+            DRIVER = None
+            return None
 
         # If user closed browser
         try:
