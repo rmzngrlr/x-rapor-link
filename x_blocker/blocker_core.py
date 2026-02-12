@@ -121,7 +121,9 @@ def get_driver():
         try:
             # Check for home link or profile element
             if DRIVER.find_elements(By.CSS_SELECTOR, "a[data-testid='AppTabBar_Home_Link']") or \
-               DRIVER.find_elements(By.CSS_SELECTOR, "[data-testid='SideNav_AccountSwitcher_Button']"):
+               DRIVER.find_elements(By.CSS_SELECTOR, "[data-testid='SideNav_AccountSwitcher_Button']") or \
+               DRIVER.find_elements(By.CSS_SELECTOR, "[data-testid='primaryColumn']") or \
+               "x.com/home" in DRIVER.current_url:
                 print("Login detected.")
                 logged_in = True
                 break
