@@ -53,7 +53,8 @@ def block_task(job_id, users):
 
         JOBS[job_id]['status'] = 'blocking'
         total = len(users)
-        blocked_count = 0
+        processed_count = 0
+        success_count = 0
 
         for i, user in enumerate(users):
             # Check for stop signal via job status (or global stop)
@@ -61,10 +62,14 @@ def block_task(job_id, users):
                 break
 
             res = block_user(driver, user)
-            blocked_count += 1
+            processed_count += 1
+
+            if res == 'blocked' or res == 'already_blocked':
+                success_count += 1
 
             JOBS[job_id]['progress'] = {
-                'current': blocked_count,
+                'current': processed_count,
+                'success': success_count,
                 'total': total,
                 'last_user': user,
                 'status': res

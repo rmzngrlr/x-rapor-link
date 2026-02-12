@@ -113,6 +113,12 @@ def get_driver():
     print("Checking login status...")
     logged_in = False
 
+    # Set longer page load timeout to prevent indefinite hangs
+    try:
+        DRIVER.set_page_load_timeout(30)
+    except:
+        pass
+
     # Check max 10 times (approx 30 seconds wait if not interacting, but loop allows manual interaction)
     # Actually, we want to block until logged in or stopped.
     # Giving user time to log in manually.
@@ -297,10 +303,28 @@ def block_user(driver, username):
     """
     try:
         url = f"https://x.com/{username}"
-        if driver.current_url != url:
-            driver.get(url)
-            # Wait for initial load
-            time.sleep(1)
+
+        # Navigate with timeout handling
+        try:
+            if driver.current_url != url:
+                driver.get(url)
+                # Wait for initial load
+                time.sleep(1)
+        except Exception as nav_err:
+            print(f"Navigation timeout/error for {username}: {nav_err}")
+            # Try to recover session
+            try:
+                driver.execute_script("window.stop();")
+            except:
+                pass
+
+            # Reset to blank page to clear stuck state
+            try:
+                driver.get("about:blank")
+                time.sleep(1)
+                driver.get(url)
+            except:
+                return 'failed'
 
         wait = WebDriverWait(driver, 8)
 
@@ -314,7 +338,10 @@ def block_user(driver, username):
             )
         except:
             print(f"Page load timeout for {username}. Refreshing...")
-            driver.refresh()
+            try:
+                driver.refresh()
+            except:
+                pass
             time.sleep(3)
             # Try waiting one more time
             try:

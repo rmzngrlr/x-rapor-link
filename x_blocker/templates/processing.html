@@ -93,12 +93,13 @@
                     if (data.progress) {
                         const current = data.progress.current;
                         const total = data.progress.total;
+                        const success = data.progress.success || 0;
                         const percent = Math.round((current / total) * 100);
 
                         progressBar.style.width = percent + "%";
                         progressBar.innerText = percent + "%";
 
-                        statusText.innerText = `${current} / ${total} kullanıcı engellendi.`;
+                        statusText.innerText = `${current} / ${total} işlendi. (${success} Başarılı)`;
                         if (data.progress.last_user) {
                             detailText.innerText = `Son işlem: @${data.progress.last_user} (${data.progress.status})`;
                         }
