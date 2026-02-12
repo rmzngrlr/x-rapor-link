@@ -135,19 +135,25 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
 
     users_set = set()
 
-    # Initial wait for content
+    # Initial wait for content - More permissive
+    print("Waiting for user list to load...")
     try:
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-testid='UserCell']")))
+        WebDriverWait(driver, 15).until(
+            lambda d: d.find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']") or
+                      d.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
+        )
     except:
-        print("No UserCell found initially. Might be empty or restricted.")
-        return []
+        print("Timeout waiting for user list. Continuing to scrape anyway in case it loads slowly.")
 
     last_count = 0
     consecutive_no_change = 0
-    max_no_change = 5  # Stop after 5 scrolls with no new users
+    max_no_change = 10  # Increased max retries
 
     while not STOP_REQUESTED:
+        # Try both selectors
         cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='UserCell']")
+        if not cells:
+             cells = driver.find_elements(By.CSS_SELECTOR, "div[data-testid='cellInnerDiv']")
 
         for cell in cells:
             try:
@@ -169,8 +175,10 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
                             potential_user = href.strip('/')
 
                         # Filter out non-user links
-                        if potential_user and potential_user not in ["home", "explore", "notifications", "messages", "search"]:
-                            users_set.add(potential_user)
+                        if potential_user and potential_user not in ["home", "explore", "notifications", "messages", "search", "login", "signup"]:
+                            # Additional check: ensure it doesn't contain /status/ (tweet link)
+                            if "/status/" not in href:
+                                users_set.add(potential_user)
             except:
                 pass
 
