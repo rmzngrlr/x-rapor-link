@@ -351,8 +351,8 @@ def block_user(driver, username):
                               d.find_elements(By.CSS_SELECTOR, "[data-testid='userActions']")
                 )
             except:
-                print(f"Failed to load profile for {username} after refresh.")
-                return 'failed'
+                print(f"Failed to load profile for {username} after refresh. Likely rate limited.")
+                return 'rate_limited'
 
         # Check if already blocked immediately
         # X usually shows a "Blocked" button with data-testid corresponding to unblock action if blocked.

@@ -101,7 +101,12 @@
 
                         statusText.innerText = `${current} / ${total} işlendi. (${success} Başarılı)`;
                         if (data.progress.last_user) {
-                            detailText.innerText = `Son işlem: @${data.progress.last_user} (${data.progress.status})`;
+                            // Check if status contains "bekleniyor" to make it more visible
+                            if (data.progress.status && data.progress.status.includes('bekleniyor')) {
+                                detailText.innerHTML = `<span class="text-warning fw-bold">${data.progress.status}</span>`;
+                            } else {
+                                detailText.innerText = `Son işlem: @${data.progress.last_user} (${data.progress.status})`;
+                            }
                         }
                     }
                 }
