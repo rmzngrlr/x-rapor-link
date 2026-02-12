@@ -229,7 +229,14 @@ def scrape_retweeters(driver, tweet_url, progress_callback=None):
                         if potential_user and potential_user not in ["home", "explore", "notifications", "messages", "search", "login", "signup"]:
                             # Additional check: ensure it doesn't contain /status/ (tweet link)
                             if "/status/" not in href:
-                                users_set.add(potential_user)
+                                # Best effort check for visual indicator of blocked status in list
+                                # Not perfect as DOM varies, but safer.
+                                try:
+                                    # If the button inside the cell says "Blocked" or "Engellendi"
+                                    # This is tricky without relative xpath but let's try strict user addition
+                                    users_set.add(potential_user)
+                                except:
+                                    pass
             except:
                 pass
 
@@ -294,37 +301,54 @@ def block_user(driver, username):
 
         wait = WebDriverWait(driver, 5)
 
-        # Check if already blocked (look for unblock button)
-        # Button text varies by language, so rely on data-testid if possible,
-        # but 'unblock' button usually has different testid or structure.
-        # Actually, if blocked, there's usually a "You blocked this account" message.
+        # Check if already blocked immediately
+        # X usually shows a "Blocked" button with data-testid corresponding to unblock action if blocked.
+        # Or a "You blocked this account" message.
+
         try:
-            # Checking for specific blocked message text might be language dependent.
-            # But let's check for "Unblock" button which might be data-testid="unblock" (guessing)
-            # or just proceed. If blocked, 'userActions' might still be there or 'unblock' button.
-            # Let's try to find 'userActions' first.
+            # Check for unblock button directly on profile
+            if driver.find_elements(By.CSS_SELECTOR, "[data-testid$='-unblock']"):
+                print(f"User {username} is already blocked (unblock button found).")
+                return 'already_blocked'
+
+            # Check for generic "You blocked" message container
+            if driver.find_elements(By.CSS_SELECTOR, "[data-testid='emptyState']"):
+                 text_content = driver.find_element(By.CSS_SELECTOR, "[data-testid='emptyState']").text.lower()
+                 if "blocked" in text_content or "engelledin" in text_content:
+                     print(f"User {username} is already blocked (empty state text).")
+                     return 'already_blocked'
+        except:
+            pass
+
+        try:
             actions_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='userActions']")))
             actions_btn.click()
         except:
-            # If userActions is missing, maybe account is suspended or we are blocked?
             print(f"Could not open actions for {username}. Account might be suspended or already blocked.")
             return 'failed'
 
         time.sleep(0.5)
 
-        # Check if "Block" is an option. If it says "Unblock" or similar, we are done.
-        # X menu items: data-testid="block" or "unblock"
+        # Strict check for Block option
         try:
             block_option = driver.find_element(By.CSS_SELECTOR, "[data-testid='block']")
             block_option.click()
         except:
-            # Maybe already blocked?
+            # If 'block' is not found, check if 'unblock' is present in the menu
             try:
-                driver.find_element(By.CSS_SELECTOR, "[data-testid='unblock']")
-                return 'already_blocked'
+                if driver.find_elements(By.CSS_SELECTOR, "[data-testid='unblock']"):
+                    print(f"User {username} is already blocked (unblock option in menu).")
+                    # Close menu by clicking elsewhere or hitting escape
+                    try:
+                        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    except:
+                        pass
+                    return 'already_blocked'
             except:
-                print(f"Block option not found for {username}")
-                return 'failed'
+                pass
+
+            print(f"Block option not found for {username}")
+            return 'failed'
 
         time.sleep(0.5)
 
