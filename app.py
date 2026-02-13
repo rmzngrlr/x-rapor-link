@@ -18,6 +18,30 @@ log.setLevel(logging.ERROR)
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
+# Global debug flag
+DEBUG_MODE = False
+
+def load_debug_config():
+    """Loads debug setting from config.json"""
+    global DEBUG_MODE
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+                DEBUG_MODE = cfg.get("debug", False)
+                # Propagate to x_scraper
+                x_scraper.DEBUG_MODE = DEBUG_MODE
+        except:
+            pass
+
+def log_debug(message):
+    """Prints message only if DEBUG_MODE is True."""
+    if DEBUG_MODE:
+        print(message, flush=True)
+
+# Initial load of debug config
+load_debug_config()
+
 # Global storage
 JOBS = {}
 TEMP_FILES = {}
@@ -41,14 +65,14 @@ def format_duration(seconds):
 
 def worker_loop():
     global IS_WORKER_BUSY
-    print("İşçi iş parçacığı başlatıldı...", flush=True)
+    log_debug("İşçi iş parçacığı başlatıldı...")
     while True:
         try:
             # Blocking wait for next job
             job_id, kwargs = JOB_QUEUE.get()
             IS_WORKER_BUSY = True
             
-            print(f"İş işleniyor {job_id}...", flush=True)
+            log_debug(f"İş işleniyor {job_id}...")
             
             if job_id in JOBS:
                 JOBS[job_id]['status'] = 'running'
@@ -59,7 +83,7 @@ def worker_loop():
                 if job_type == 'screenshot':
                     # Direct screenshot mode
                     links = kwargs.get('links', [])
-                    print(f"İş {job_id}: {len(links)} ekran görüntüsü Node.js servisi aracılığıyla işleniyor...", flush=True)
+                    log_debug(f"İş {job_id}: {len(links)} ekran görüntüsü Node.js servisi aracılığıyla işleniyor...")
                     try:
                         start_time_perf = time.time()
                         # Call Node.js service
@@ -83,7 +107,7 @@ def worker_loop():
                             }
                             JOBS[job_id]['status'] = 'completed'
                             JOBS[job_id]['result'] = stats
-                            print(f"İş {job_id} tamamlandı (ekran görüntüleri).", flush=True)
+                            log_debug(f"İş {job_id} tamamlandı (ekran görüntüleri).")
                         else:
                             raise Exception(f"Node.js servisi hatası: {response.status_code} - {response.text}")
                             
@@ -104,11 +128,11 @@ def worker_loop():
                         stats['job_type'] = 'scrape'
                         JOBS[job_id]['status'] = 'completed'
                         JOBS[job_id]['result'] = stats
-                        print(f"İş {job_id} tamamlandı.", flush=True)
+                        log_debug(f"İş {job_id} tamamlandı.")
                     else:
                         JOBS[job_id]['status'] = 'failed'
                         JOBS[job_id]['error'] = "İşlem başarısız oldu (Giriş hatası veya veri yok)."
-                        print(f"İş {job_id} başarısız oldu (istatistik yok).", flush=True)
+                        log_debug(f"İş {job_id} başarısız oldu (istatistik yok).")
             except Exception as e:
                 JOBS[job_id]['status'] = 'failed'
                 JOBS[job_id]['error'] = str(e)
@@ -204,7 +228,7 @@ def index():
         # Initial status queued
         JOBS[job_id] = {'status': 'queued', 'result': None}
         
-        print(f"İş sıraya alınıyor {job_id}", flush=True)
+        log_debug(f"İş sıraya alınıyor {job_id}")
         JOB_QUEUE.put((job_id, scrape_kwargs))
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -319,7 +343,7 @@ def start_word_generation():
     }
 
     JOBS[new_job_id] = {'status': 'queued', 'result': None}
-    print(f"Ekran görüntüsü işi sıraya alınıyor {new_job_id}", flush=True)
+    log_debug(f"Ekran görüntüsü işi sıraya alınıyor {new_job_id}")
     JOB_QUEUE.put((new_job_id, scrape_kwargs))
 
     return redirect(url_for('processing', job_id=new_job_id))
