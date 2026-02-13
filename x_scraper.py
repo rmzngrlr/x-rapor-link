@@ -715,7 +715,7 @@ def run_process(username, password, target_username, start_date_str, end_date_st
     finally:
         try:
             if driver and not stop_requested:
-                driver.get("https://x.com/home")
+                driver.get("https://x.com/explore")
         except:
             pass
         log("Görev tamamlandı. Sürücü bir sonraki görev için açık kalıyor.")
