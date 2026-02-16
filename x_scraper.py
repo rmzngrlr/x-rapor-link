@@ -12,7 +12,15 @@ stop_requested = False
 # Global persistent driver
 DRIVER = None
 
+# Global debug flag
+DEBUG_MODE = False
+
 # VERSION: v2.4 - Cookie Sharing Enabled
+
+def log_debug(message):
+    """Prints message only if DEBUG_MODE is True."""
+    if DEBUG_MODE:
+        print(message, flush=True)
 
 def request_stop():
     global stop_requested
@@ -32,12 +40,15 @@ COOKIE_FILE = 'twitter_cookies.json'  # YENİ: Çerez dosyası
 
 def load_config():
     """Loads configuration from the JSON file."""
+    global DEBUG_MODE
     if not os.path.exists(CONFIG_FILE):
         print(f"Hata: {CONFIG_FILE} bulunamadı!", flush=True)
         return None
     
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+        DEBUG_MODE = config.get("debug", False)
+        return config
 
 def parse_datetime(date_str, time_str="00:00"):
     """Parses a date string (DD-MM-YYYY) and time string (HH:MM) into a datetime object."""
@@ -51,7 +62,7 @@ def parse_datetime(date_str, time_str="00:00"):
 def ensure_selenium_imports():
     global uc, By, WebDriverWait, EC, Keys, ActionChains
     if uc is None:
-        print("Selenium kütüphaneleri yükleniyor...", flush=True)
+        log_debug("Selenium kütüphaneleri yükleniyor...")
         try:
             import undetected_chromedriver as uc
             from selenium.webdriver.common.by import By
@@ -71,7 +82,7 @@ def save_cookies_to_file(driver):
         cookies = driver.get_cookies()
         with open(COOKIE_FILE, 'w', encoding='utf-8') as f:
             json.dump(cookies, f, indent=2)
-        print(f"✔ Oturum çerezleri '{COOKIE_FILE}' dosyasına kaydedildi (Node.js ile paylaşılıyor).", flush=True)
+        log_debug(f"✔ Oturum çerezleri '{COOKIE_FILE}' dosyasına kaydedildi (Node.js ile paylaşılıyor).")
     except Exception as e:
         print(f"⚠ Çerez kaydetme hatası: {e}", flush=True)
 
@@ -91,7 +102,7 @@ def get_or_create_driver(username, password):
         try:
             # Check liveness by getting title
             _ = DRIVER.title
-            print("Mevcut tarayıcı aktif.", flush=True)
+            log_debug("Mevcut tarayıcı aktif.")
         except Exception as e:
             print(f"Mevcut tarayıcı yanıt vermiyor ({e}). Yeniden başlatılıyor...", flush=True)
             try:
@@ -102,13 +113,13 @@ def get_or_create_driver(username, password):
 
     # Create if needed
     if DRIVER is None:
-        print("Yeni Chrome sürücüsü başlatılıyor...", flush=True)
+        log_debug("Yeni Chrome sürücüsü başlatılıyor...")
         
         # Define the persistent user data directory
         user_data_dir = os.path.join(os.getcwd(), 'chrome_profile')
         if not os.path.exists(user_data_dir):
             os.makedirs(user_data_dir, exist_ok=True)
-        print(f"Kalıcı profil yolu: {user_data_dir}", flush=True)
+        log_debug(f"Kalıcı profil yolu: {user_data_dir}")
 
         options = uc.ChromeOptions()
         options.add_argument("--start-maximized")
@@ -185,7 +196,7 @@ def verify_login_and_refresh(driver, username, password):
     # Quick Check: If on login page, skip refresh logic and login immediately
     current_url = driver.current_url
     if "login" in current_url or "flow/login" in current_url:
-         print("Giriş sayfası tespit edildi. Kontroller atlanıyor ve giriş yapılıyor...", flush=True)
+         log_debug("Giriş sayfası tespit edildi. Kontroller atlanıyor ve giriş yapılıyor...")
          return login_to_x(driver, username, password)
 
     wait = WebDriverWait(driver, 5)
@@ -194,7 +205,7 @@ def verify_login_and_refresh(driver, username, password):
     try:
         # If not on x.com, navigate there first
         if "x.com" not in current_url:
-            print("X ana sayfasına gidiliyor...", flush=True)
+            log_debug("X ana sayfasına gidiliyor...")
             driver.get("https://x.com/home")
 
         # Quick check without refresh first
@@ -206,7 +217,7 @@ def verify_login_and_refresh(driver, username, password):
         pass
 
     # Attempt refresh to clear stale state ONLY if we are not explicitly on a login page
-    print("Oturum hemen algılanamadı. Sayfa yenileniyor...", flush=True)
+    log_debug("Oturum hemen algılanamadı. Sayfa yenileniyor...")
     try:
         if "x.com" not in driver.current_url:
              driver.get("https://x.com/home")
@@ -225,7 +236,7 @@ def verify_login_and_refresh(driver, username, password):
         pass
         
     # Not logged in or unsure, try logging in
-    print("Oturum algılanamadı. Giriş yapılıyor...", flush=True)
+    log_debug("Oturum algılanamadı. Giriş yapılıyor...")
     return login_to_x(driver, username, password)
 
 def login_to_x(driver, username, password, target_username=None, interaction_callback=None):
@@ -233,7 +244,7 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
     
     # If not already on login page, go there
     if "login" not in driver.current_url:
-        print("X giriş sayfasına gidiliyor...", flush=True)
+        log_debug("X giriş sayfasına gidiliyor...")
         driver.get("https://x.com/i/flow/login")
     
     # Fast track: Check for username input immediately
@@ -254,7 +265,7 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
     
     # 1. Username
     try:
-        print("Kullanıcı adı giriliyor...", flush=True)
+        log_debug("Kullanıcı adı giriliyor...")
         username_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[autocomplete='username']")))
         
         for char in username:
@@ -268,14 +279,14 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
         try:
             WebDriverWait(driver, 2).until(EC.visibility_of_element_located((By.NAME, "password")))
         except:
-            print("Enter tuşu işe yaramadı. 'İleri' butonuna tıklanıyor...", flush=True)
+            log_debug("Enter tuşu işe yaramadı. 'İleri' butonuna tıklanıyor...")
             try:
                 next_button = driver.find_element(By.XPATH, "//span[text()='Next' or text()='İleri']")
                 driver.execute_script("arguments[0].click();", next_button)
             except Exception as e:
                 print(f"İleri butonu bulunamadı/tıklanamadı: {e}", flush=True)
 
-        print("Şifre alanının belirmesi bekleniyor...", flush=True)
+        log_debug("Şifre alanının belirmesi bekleniyor...")
     except Exception as e:
         print(f"Kullanıcı adı girme hatası (veya zaten giriş yapılmış?): {e}", flush=True)
         try:
@@ -287,7 +298,7 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
     # 2. Password
     try:
         password_input = wait.until(EC.visibility_of_element_located((By.NAME, "password")))
-        print("Şifre alanı tespit edildi. Şifre giriliyor...", flush=True)
+        log_debug("Şifre alanı tespit edildi. Şifre giriliyor...")
         password_input.send_keys(password)
         time.sleep(0.5)
         password_input.send_keys(Keys.RETURN)
@@ -298,9 +309,9 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
         
     # Wait for login to complete
     try:
-        print("Giriş işleminin tamamlanması bekleniyor...", flush=True)
+        log_debug("Giriş işleminin tamamlanması bekleniyor...")
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "a[data-testid='AppTabBar_Home_Link']")))
-        print("Giriş başarılı!", flush=True)
+        log_debug("Giriş başarılı!")
         return True
     except Exception as e:
         print("Giriş kontrolü zaman aşımına uğradı.", flush=True)
@@ -403,21 +414,21 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
-        print(f"Liste Modu: {profile_url} adresine gidiliyor...", flush=True)
+        log_debug(f"Liste Modu: {profile_url} adresine gidiliyor...")
     else:
         if only_replies:
             profile_url = f"https://x.com/{target_username}/with_replies"
-            print(f"Profil Modu (Yanıtlar): {profile_url} adresine gidiliyor...", flush=True)
+            log_debug(f"Profil Modu (Yanıtlar): {profile_url} adresine gidiliyor...")
         else:
             profile_url = f"https://x.com/{target_username}"
-            print(f"Profil Modu: {profile_url} adresine gidiliyor...", flush=True)
+            log_debug(f"Profil Modu: {profile_url} adresine gidiliyor...")
         clean_target_username = target_username.lower().replace("@", "")
     
     if driver.current_url != profile_url:
         driver.get(profile_url)
         time.sleep(3)
     else:
-        print("Zaten hedef sayfadasınız. Tarama başlatılıyor...", flush=True)
+        log_debug("Zaten hedef sayfadasınız. Tarama başlatılıyor...")
         time.sleep(2)
 
     try:
@@ -432,7 +443,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     collected_links = set()
     collected_data = []
 
-    print(f"{start_datetime} ile {end_datetime} arasındaki tweetler toplanıyor...", flush=True)
+    log_debug(f"{start_datetime} ile {end_datetime} arasındaki tweetler toplanıyor...")
 
     max_wait_time = 2.0
     max_stuck_retries = 15
@@ -443,7 +454,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     
     while keep_scrolling:
         if stop_requested:
-            print("Durdurma istendi. Döngü kırılıyor.", flush=True)
+            log_debug("Durdurma istendi. Döngü kırılıyor.")
             break
 
         articles = driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
@@ -532,12 +543,12 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                             "Link": link,
                             "Username": username_from_link
                         })
-                        print(f"Tweet bulundu: {t_datetime} - {link} (Kullanıcı: {username_from_link})", flush=True)
+                        log_debug(f"Tweet bulundu: {t_datetime} - {link} (Kullanıcı: {username_from_link})")
                 
                 elif t_datetime < start_datetime:
                     consecutive_old_tweets += 1
                     if consecutive_old_tweets >= 10:
-                        print("Başlangıç tarihinden eski tweetlere ulaşıldı. Durduruluyor.", flush=True)
+                        log_debug("Başlangıç tarihinden eski tweetlere ulaşıldı. Durduruluyor.")
                         keep_scrolling = False
                         break
                 else:
@@ -576,9 +587,9 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
         
         if current_scroll_y >= new_height - 200:
             consecutive_scrolls_without_new_tweets += 1
-            print(f"Sayfa sonu mu? Deneme {consecutive_scrolls_without_new_tweets}/{max_stuck_retries}", flush=True)
+            log_debug(f"Sayfa sonu mu? Deneme {consecutive_scrolls_without_new_tweets}/{max_stuck_retries}")
             if consecutive_scrolls_without_new_tweets > max_stuck_retries:
-                print(f"{max_stuck_retries} deneme boyunca yeni içerik yüklenmedi. Durduruluyor.", flush=True)
+                log_debug(f"{max_stuck_retries} deneme boyunca yeni içerik yüklenmedi. Durduruluyor.")
                 keep_scrolling = False
             else:
                  time.sleep(1)
@@ -589,7 +600,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
 
 def save_to_excel(data, output_file=OUTPUT_FILE):
     if not data:
-        print("Belirtilen aralıkta tweet bulunamadı.", flush=True)
+        log_debug("Belirtilen aralıkta tweet bulunamadı.")
         return 0, [], None
     
     try:
@@ -600,7 +611,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         return False, [], None
 
     filtered_data = data
-    print(f"İşleniyor: {len(filtered_data)} tweet kaydedilecek.", flush=True)
+    log_debug(f"İşleniyor: {len(filtered_data)} tweet kaydedilecek.")
 
     try:
         wb = Workbook()
@@ -619,14 +630,14 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         if output_file:
             wb.save(output_file)
             count = len(filtered_data)
-            print(f"{count} tweet başarıyla {output_file} dosyasına kaydedildi.", flush=True)
+            log_debug(f"{count} tweet başarıyla {output_file} dosyasına kaydedildi.")
             return count, filtered_data, None
         else:
             virtual_file = BytesIO()
             wb.save(virtual_file)
             virtual_file.seek(0)
             count = len(filtered_data)
-            print(f"Excel bellekte başarıyla oluşturuldu ({count} tweet).", flush=True)
+            log_debug(f"Excel bellekte başarıyla oluşturuldu ({count} tweet).")
             return count, filtered_data, virtual_file
             
     except Exception as e:
@@ -641,7 +652,8 @@ def run_process(username, password, target_username, start_date_str, end_date_st
     def log(msg):
         if status_callback:
             status_callback(msg)
-        print(msg, flush=True)
+        if DEBUG_MODE:
+            print(msg, flush=True)
 
     start_datetime = parse_datetime(start_date_str, start_time_str)
     end_datetime = parse_datetime(end_date_str, end_time_str)
@@ -715,7 +727,7 @@ def run_process(username, password, target_username, start_date_str, end_date_st
     finally:
         try:
             if driver and not stop_requested:
-                driver.get("https://x.com/home")
+                driver.get("https://x.com/explore")
         except:
             pass
         log("Görev tamamlandı. Sürücü bir sonraki görev için açık kalıyor.")
@@ -723,7 +735,7 @@ def run_process(username, password, target_username, start_date_str, end_date_st
 if __name__ == "__main__":
     config = load_config()
     if config:
-        print("Eski CLI modu...", flush=True)
+        log_debug("Eski CLI modu...")
         username = input("Kullanıcı Adı: ")
         password = getpass.getpass("Şifre: ")
         target = config.get('target_username', '')
