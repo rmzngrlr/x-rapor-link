@@ -52,22 +52,17 @@ sudo apt -f install -y
 2.  Telefondan erişim için **`open_firewall.bat`** dosyasına sağ tıklayıp "Yönetici Olarak Çalıştır" deyin.
 
 ### Linux'ta (Ubuntu)
-Bu sürüm, **GörüntüX** özelliği için Node.js gerektirir. Lütfen Node.js'in yüklü olduğundan emin olun.
+Bu sürüm, sistemin sürekli ve kararlı çalışması için **PM2** süreç yöneticisi ile yapılandırılmıştır.
 
-1. Bağımlılıkları yükleyin:
-   ```bash
-   pip install -r requirements.txt
-   cd x-screenshot-araci
-   npm install
-   cd ..
-   ```
+1.  **Tek Seferlik Kurulum:**
+    `install.sh` dosyasını çalıştırın. Bu komut gerekli tüm bağımlılıkları yükler (Node.js, PM2, Python venv vb.) ve sistemi PM2 ile başlatır.
+    ```bash
+    chmod +x install.sh
+    ./install.sh
+    ```
 
-2. Sunucuları başlatın:
-   ```bash
-   chmod +x start.sh
-   ./start.sh
-   ```
-   Bu komut hem Python hem de Node.js sunucusunu başlatacaktır.
+2.  **Otomatik Başlatma:**
+    Sistem her yeniden başladığında uygulama otomatik olarak açılacaktır. Manuel başlatmaya gerek yoktur.
 
 Uzaktan (telefondan) erişim için port açmak isterseniz:
 ```bash
@@ -77,6 +72,33 @@ sudo ./open_firewall.sh
 ### Erişim
 *   **Bilgisayardan:** `http://localhost:5000`
 *   **Telefondan:** Başlatma ekranında yazan IP adresi ile (Örn: `http://192.168.1.20:5000`) bağlanın ve "Ana Ekrana Ekle" diyerek uygulama gibi kullanın.
+
+## ⚡ Sunucu Yönetimi (PM2) - Linux
+
+Sistem arka planda PM2 ile çalışır. İşte temel yönetim komutları:
+
+### Durum Kontrolü
+Sistemlerin çalışıp çalışmadığını görmek için:
+```bash
+pm2 status
+```
+
+### Logları (Kayıtları) İzleme
+Canlı olarak sistemin neler yaptığını görmek için:
+```bash
+pm2 logs
+```
+*   Sadece Python loglarını görmek için: `pm2 logs x-rapor-python`
+*   Sadece Node.js loglarını görmek için: `pm2 logs x-rapor-node`
+
+### Sistemi Durdurma/Başlatma
+*   **Tümünü Durdur:** `pm2 stop all`
+*   **Tümünü Yeniden Başlat:** `pm2 restart all`
+*   **Tümünü Sil:** `pm2 delete all` (PM2 listesinden kaldırır)
+
+### Log Dosyaları ve Otomatik Temizlik
+*   Tüm log dosyaları projenin ana dizinindeki **`./logs/`** klasöründe saklanır.
+*   **Otomatik Silme:** Sistem, her gece yarısı (00:00:00) logları otomatik olarak döndürür (rotate) ve sadece en son güncel log dosyasını tutar. Eski loglar diskte yer kaplamaması için silinir.
 
 ## 📖 Kullanım Kılavuzu
 
