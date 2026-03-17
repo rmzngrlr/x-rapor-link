@@ -502,8 +502,8 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
 
                 # Update our timeline estimate based on the target's own regular tweets.
                 # Do NOT update timeline date using pinned tweets or retweets.
-                if scrape_mode == 'profile' and not article_is_retweet and not article_is_pinned:
-                    # Target's own tweet gives us the best estimate of where we are in their timeline
+                if not article_is_retweet and not article_is_pinned:
+                    # Regular tweet gives us the best estimate of where we are in the timeline
                     if t_datetime < current_timeline_date:
                         current_timeline_date = t_datetime
 
@@ -511,7 +511,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                 # For retweets, we cannot rely on the original tweet date since it could be from years ago,
                 # but it was retweeted "today". Therefore, we evaluate it based on the timeline position.
                 effective_date = t_datetime
-                if article_is_retweet and scrape_mode == 'profile':
+                if article_is_retweet:
                     effective_date = current_timeline_date
 
                 # If the timeline position or tweet date is within our requested range
@@ -773,14 +773,10 @@ def run_process(username, password, target_username, start_date_str, end_date_st
                 log(f"{target} taranırken hata: {e}")
                 continue
         
-        # If in list mode, sort all data by Username then Date to group by user
-        if scrape_mode == 'list' and all_data:
-            log("Liste Modu için veriler Kullanıcı ve Tarihe göre sıralanıyor...")
+        # Ensure all data is strictly sorted chronologically by Date
+        if all_data:
             try:
-                # Sort by Date first (secondary key)
                 all_data.sort(key=lambda x: x['Date'])
-                # Then sort by Username (primary key) - Python's sort is stable
-                all_data.sort(key=lambda x: x['Username'].lower())
             except Exception as e:
                 log(f"Sıralama hatası: {e}")
         
