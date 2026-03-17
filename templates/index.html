@@ -104,10 +104,29 @@
                         </div>
 
                         <div class="mb-3" id="repliesOptionContainer">
+                            <label class="form-label text-muted" style="font-size: 0.9em;">İçerik Filtreleme (Sadece biri seçilebilir)</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="true" id="only_replies" name="only_replies">
+                                <input class="form-check-input filter-radio" type="radio" value="none" id="filter_none" name="content_filter" checked>
+                                <label class="form-check-label" for="filter_none">
+                                    Sadece Kendi Tweetlerini Al (Varsayılan)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input filter-radio" type="radio" value="only_replies" id="only_replies" name="content_filter">
                                 <label class="form-check-label" for="only_replies">
                                     Sadece Yanıtları Tara
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input filter-radio" type="radio" value="include_retweets" id="include_retweets" name="content_filter">
+                                <label class="form-check-label" for="include_retweets">
+                                    Retweetleri de Dahil Et
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input filter-radio" type="radio" value="only_retweets" id="only_retweets" name="content_filter">
+                                <label class="form-check-label" for="only_retweets">
+                                    Sadece Retweetleri Al
                                 </label>
                             </div>
                         </div>

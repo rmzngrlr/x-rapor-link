@@ -367,6 +367,19 @@ def is_retweet(article):
     except Exception:
         return False
 
+def get_tweet_author_username(article):
+    """Extracts the username (handle) of the tweet's author."""
+    try:
+        user_element = article.find_element(By.CSS_SELECTOR, "[data-testid='User-Name']")
+        links = user_element.find_elements(By.TAG_NAME, "a")
+        for link in links:
+            href = link.get_attribute("href")
+            if href and "x.com/" in href:
+                return href.split("x.com/")[-1].split("/")[0].lower()
+    except Exception:
+        pass
+    return None
+
 def get_reply_info(article):
     try:
         driver = article.parent
@@ -410,7 +423,7 @@ def get_reply_info(article):
     except Exception as e:
         return False, None
 
-def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False):
+def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
@@ -470,28 +483,53 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                 if start_datetime <= t_datetime <= end_datetime:
                     consecutive_old_tweets = 0 
                     
-                    if is_retweet(article): continue
+                    article_is_retweet = is_retweet(article)
+                    author_username = get_tweet_author_username(article)
                     
-                    is_rep, reply_to_handle = get_reply_info(article)
+                    # If it is a retweet but the author is the target user, it's a self-retweet
+                    # User requested to ignore self-retweets when fetching retweets.
+                    if article_is_retweet and clean_target_username and author_username == clean_target_username:
+                        # Treat it as not a retweet (skip if only_retweets, or don't include as retweet)
+                        # Actually, user says: "Yalnız mesela @abcd hesabı sadece rt'leri alırken sadece başka hesabın paylaşımlarına yaptığı rt'yi yapsın. @abcd hesabının kendi tweetlerini rtlemesini almasın."
+                        # This implies self-retweets should be completely ignored if they are being fetched as retweets.
+                        if only_retweets:
+                            continue
+                        elif include_retweets:
+                            # It's a self-retweet. We don't want it to be included because of include_retweets.
+                            # We can just skip it here, because their original tweet will be caught anyway if it's within the date range.
+                            continue
                     
-                    if not only_replies:
-                        if is_rep: continue
+                    if only_retweets:
+                        if not article_is_retweet:
+                            continue
                     else:
-                        final_is_reply = is_rep
-                        if not final_is_reply:
-                            try:
-                                txt = article.text
-                                if "Yanıtlanan" in txt or "Replying to" in txt or "En réponse à" in txt:
-                                    final_is_reply = True
-                            except:
-                                pass
-                        
-                        if not final_is_reply:
+                        if article_is_retweet and not include_retweets:
                             continue
 
-                        if reply_to_handle and clean_target_username:
-                            if reply_to_handle.lower() == clean_target_username:
+                    # If it's a retweet, we bypass reply filtering since retweets aren't considered replies
+                    # in the context of what the user wants to fetch (unless it's a retweet of a reply,
+                    # but usually users just want the retweets as they are).
+                    if not article_is_retweet:
+                        is_rep, reply_to_handle = get_reply_info(article)
+
+                        if not only_replies:
+                            if is_rep: continue
+                        else:
+                            final_is_reply = is_rep
+                            if not final_is_reply:
+                                try:
+                                    txt = article.text
+                                    if "Yanıtlanan" in txt or "Replying to" in txt or "En réponse à" in txt:
+                                        final_is_reply = True
+                                except:
+                                    pass
+
+                            if not final_is_reply:
                                 continue
+
+                            if reply_to_handle and clean_target_username:
+                                if reply_to_handle.lower() == clean_target_username:
+                                    continue
 
                     if search_keyword:
                         try:
@@ -522,7 +560,9 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                                 link_parts = link.split('/')
                                 if len(link_parts) > 3:
                                     link_username = link_parts[3].lower()
-                                    if link_username != clean_target_username:
+                                    # If it's a retweet, the link_username will be the original author's username,
+                                    # which is different from the target username. We shouldn't skip it in that case.
+                                    if not article_is_retweet and link_username != clean_target_username:
                                         continue
                             except Exception:
                                 continue
@@ -644,7 +684,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Excel kaydetme hatası: {e}", flush=True)
         return False, [], None
 
-def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False):
+def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     global stop_requested
     stop_requested = False
     start_time_perf = time.time()
@@ -677,7 +717,7 @@ def run_process(username, password, target_username, start_date_str, end_date_st
             if stop_requested: break
             log(f"{scrape_mode} hedefi taranıyor: {target} ({i+1}/{len(targets)})...")
             try:
-                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies)
+                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, include_retweets, only_retweets)
                 if target_data:
                     # In profile mode, we want to keep the order per target, sorted by date
                     # In list mode, we might get mixed results, but we'll sort everything at the end

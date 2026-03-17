@@ -171,7 +171,10 @@ def index():
             return redirect(url_for('index'))
 
         scrape_mode = request.form.get('scrape_mode', 'profile')
-        only_replies = request.form.get('only_replies') == 'true'
+        content_filter = request.form.get('content_filter', 'none')
+        only_replies = content_filter == 'only_replies'
+        include_retweets = content_filter == 'include_retweets'
+        only_retweets = content_filter == 'only_retweets'
         target_username = request.form.get('target_username')
         search_keyword = request.form.get('search_keyword')
         start_date = request.form.get('start_date')
@@ -217,6 +220,8 @@ def index():
                 'target_username': target_username,
                 'scrape_mode': scrape_mode,
                 'only_replies': only_replies,
+                'include_retweets': include_retweets,
+                'only_retweets': only_retweets,
                 'search_keyword': search_keyword,
                 'start_date_str': start_date_fmt,
                 'end_date_str': end_date_fmt,
