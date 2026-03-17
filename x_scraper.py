@@ -367,6 +367,18 @@ def is_retweet(article):
     except Exception:
         return False
 
+def is_pinned_tweet(article):
+    """Checks if the tweet is pinned."""
+    try:
+        social_context = article.find_elements(By.CSS_SELECTOR, "[data-testid='socialContext']")
+        if social_context:
+            text = social_context[0].text.lower()
+            if "sabitle" in text or "pinned" in text or "épinglé" in text:
+                return True
+        return False
+    except Exception:
+        return False
+
 def get_tweet_author_username(article):
     """Extracts the username (handle) of the tweet's author."""
     try:
@@ -463,8 +475,12 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     
     keep_scrolling = True
     consecutive_old_tweets = 0
+    consecutive_old_retweets = 0
     consecutive_scrolls_without_new_tweets = 0
     
+    # We use this to estimate the position in the timeline.
+    current_timeline_date = datetime.now()
+
     while keep_scrolling:
         if stop_requested:
             log_debug("Durdurma istendi. Döngü kırılıyor.")
@@ -480,11 +496,29 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                 if not t_datetime:
                     continue
                 
-                if start_datetime <= t_datetime <= end_datetime:
+                article_is_retweet = is_retweet(article)
+                author_username = get_tweet_author_username(article)
+                article_is_pinned = is_pinned_tweet(article)
+
+                # Update our timeline estimate based on the target's own regular tweets.
+                # Do NOT update timeline date using pinned tweets or retweets.
+                if scrape_mode == 'profile' and not article_is_retweet and not article_is_pinned:
+                    # Target's own tweet gives us the best estimate of where we are in their timeline
+                    if t_datetime < current_timeline_date:
+                        current_timeline_date = t_datetime
+
+                # Calculate the effective date for range checking
+                # For retweets, we cannot rely on the original tweet date since it could be from years ago,
+                # but it was retweeted "today". Therefore, we evaluate it based on the timeline position.
+                effective_date = t_datetime
+                if article_is_retweet and scrape_mode == 'profile':
+                    effective_date = current_timeline_date
+
+                # If the timeline position or tweet date is within our requested range
+                if start_datetime <= effective_date <= end_datetime:
+                    # Reset early stop counters
                     consecutive_old_tweets = 0 
-                    
-                    article_is_retweet = is_retweet(article)
-                    author_username = get_tweet_author_username(article)
+                    consecutive_old_retweets = 0
                     
                     # If it is a retweet but the author is the target user, it's a self-retweet
                     # User requested to ignore self-retweets when fetching retweets.
@@ -579,20 +613,29 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                             pass
 
                         collected_data.append({
-                            "Date": t_datetime,
+                            # Save with effective date so retweets appear chronologically mixed with regular tweets
+                            "Date": effective_date,
                             "Link": link,
                             "Username": username_from_link
                         })
-                        log_debug(f"Tweet bulundu: {t_datetime} - {link} (Kullanıcı: {username_from_link})")
+                        log_debug(f"Tweet bulundu: {effective_date} (Orijinal: {t_datetime}) - {link} (Kullanıcı: {username_from_link})")
                 
-                elif t_datetime < start_datetime:
-                    consecutive_old_tweets += 1
-                    if consecutive_old_tweets >= 10:
-                        log_debug("Başlangıç tarihinden eski tweetlere ulaşıldı. Durduruluyor.")
+                elif effective_date < start_datetime:
+                    # If we are encountering tweets older than our start range
+                    if article_is_retweet:
+                        consecutive_old_retweets += 1
+                    else:
+                        consecutive_old_tweets += 1
+
+                    # We need to be careful not to stop prematurely if an account posts many old retweets in a row
+                    # But if we see 10 of their OWN tweets that are too old, or 40 retweets that are evaluated as too old, we stop.
+                    if consecutive_old_tweets >= 10 or consecutive_old_retweets >= 40:
+                        log_debug(f"Başlangıç tarihinden eski içeriklere ulaşıldı (Kendi: {consecutive_old_tweets}, RT: {consecutive_old_retweets}). Durduruluyor.")
                         keep_scrolling = False
                         break
                 else:
                     consecutive_old_tweets = 0
+                    consecutive_old_retweets = 0
 
             except Exception as e:
                 continue
