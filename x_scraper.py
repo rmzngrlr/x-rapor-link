@@ -488,7 +488,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                     
                     # If it is a retweet but the author is the target user, it's a self-retweet
                     # User requested to ignore self-retweets when fetching retweets.
-                    if article_is_retweet and clean_target_username and author_username == clean_target_username:
+                    if scrape_mode == 'profile' and article_is_retweet and clean_target_username and author_username == clean_target_username:
                         # Treat it as not a retweet (skip if only_retweets, or don't include as retweet)
                         # Actually, user says: "Yalnız mesela @abcd hesabı sadece rt'leri alırken sadece başka hesabın paylaşımlarına yaptığı rt'yi yapsın. @abcd hesabının kendi tweetlerini rtlemesini almasın."
                         # This implies self-retweets should be completely ignored if they are being fetched as retweets.

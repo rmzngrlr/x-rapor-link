@@ -283,13 +283,22 @@
                 input.placeholder = "kullanici1, kullanici2";
                 help.innerText = "Birden fazla kullanıcı için aralarına virgül (,) koyunuz.";
                 repliesContainer.style.display = "block";
+                document.getElementById('only_replies').disabled = false;
+                document.getElementById('only_replies').parentElement.style.opacity = "1";
             } else {
                 label.innerText = "Liste URL'si";
                 prefix.style.display = "none";
                 input.placeholder = "https://x.com/i/lists/12345...";
                 help.innerText = "Tarayıcınızdan listenin linkini kopyalayıp yapıştırın.";
-                repliesContainer.style.display = "none";
-                document.getElementById('only_replies').checked = false;
+                repliesContainer.style.display = "block";
+
+                // Disable 'Sadece Yanıtları Tara' for list mode
+                document.getElementById('only_replies').disabled = true;
+                document.getElementById('only_replies').parentElement.style.opacity = "0.5";
+
+                if(document.getElementById('only_replies').checked) {
+                    document.getElementById('filter_none').checked = true;
+                }
             }
         }
     }
