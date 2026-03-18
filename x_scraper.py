@@ -429,12 +429,54 @@ def is_pinned_tweet(article):
 def get_tweet_author_username(article):
     """Extracts the username (handle) of the tweet's author."""
     try:
+        # First attempt: From React Props (most reliable)
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            if (tweetData.retweeted_status && tweetData.retweeted_status.user) {
+                return tweetData.retweeted_status.user.screen_name.toLowerCase();
+            } else if (tweetData.user) {
+                return tweetData.user.screen_name.toLowerCase();
+            }
+        }
+        return null;
+        """
+        username = driver.execute_script(js_script, article)
+        if username:
+            return username.lower()
+    except Exception:
+        pass
+
+    try:
+        # Fallback to DOM elements
         user_element = article.find_element(By.CSS_SELECTOR, "[data-testid='User-Name']")
         links = user_element.find_elements(By.TAG_NAME, "a")
         for link in links:
             href = link.get_attribute("href")
             if href and "x.com/" in href:
-                return href.split("x.com/")[-1].split("/")[0].lower()
+                return href.split("x.com/")[-1].split("?")[0].split("/")[0].lower()
     except Exception:
         pass
     return None
@@ -554,15 +596,13 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                     
                     # If it is a retweet but the author is the target user, it's a self-retweet
                     # User requested to ignore self-retweets when fetching retweets.
-                    if scrape_mode == 'profile' and article_is_retweet and clean_target_username and author_username == clean_target_username:
-                        # Treat it as not a retweet (skip if only_retweets, or don't include as retweet)
-                        # Actually, user says: "Yalnız mesela @abcd hesabı sadece rt'leri alırken sadece başka hesabın paylaşımlarına yaptığı rt'yi yapsın. @abcd hesabının kendi tweetlerini rtlemesini almasın."
-                        # This implies self-retweets should be completely ignored if they are being fetched as retweets.
-                        if only_retweets:
-                            continue
-                        elif include_retweets:
-                            # It's a self-retweet. We don't want it to be included because of include_retweets.
-                            # We can just skip it here, because their original tweet will be caught anyway if it's within the date range.
+                    # Self-retweet filtering must be strictly enforced.
+                    if article_is_retweet and clean_target_username and author_username == clean_target_username:
+                        if only_retweets or include_retweets:
+                            # If it's a self-retweet and we are specifically targeting/including retweets, skip it entirely.
+                            # The original tweet will be caught anyway when it appears in the regular timeline
+                            # (if it's within the requested date range). We strictly do not want to record self-retweets
+                            # as "retweets".
                             continue
                     
                     if only_retweets:
