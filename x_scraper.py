@@ -399,6 +399,44 @@ def get_tweet_link(article):
     return None
 
 def is_retweet(article):
+    """Checks if the tweet is a retweet using React Props."""
+    try:
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            return !!tweetData.retweeted_status;
+        }
+        return false;
+        """
+        is_rt = driver.execute_script(js_script, article)
+        if is_rt is True or is_rt is False:
+            return is_rt
+    except Exception:
+        pass
+
+    # Fallback to DOM check
     try:
         social_context = article.find_elements(By.CSS_SELECTOR, "[data-testid='socialContext']")
         if social_context:
@@ -413,6 +451,48 @@ def is_retweet(article):
         return False
     except Exception:
         return False
+
+def is_self_retweet(article):
+    """Checks if the tweet is a self-retweet (user retweeted their own tweet)."""
+    try:
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData && tweetData.retweeted_status) {
+            // Check if the original author is the same as the retweeter
+            if (tweetData.user && tweetData.retweeted_status.user) {
+                return tweetData.user.screen_name.toLowerCase() === tweetData.retweeted_status.user.screen_name.toLowerCase();
+            }
+        }
+        return false;
+        """
+        is_self_rt = driver.execute_script(js_script, article)
+        if is_self_rt is True or is_self_rt is False:
+            return is_self_rt
+    except Exception:
+        pass
+    return False
 
 def is_pinned_tweet(article):
     """Checks if the tweet is pinned."""
@@ -596,8 +676,8 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                     
                     # If it is a retweet but the author is the target user, it's a self-retweet
                     # User requested to ignore self-retweets when fetching retweets.
-                    # Self-retweet filtering must be strictly enforced.
-                    if article_is_retweet and clean_target_username and author_username == clean_target_username:
+                    # Self-retweet filtering must be strictly enforced (works for both profile and list mode).
+                    if article_is_retweet and (is_self_retweet(article) or (clean_target_username and author_username == clean_target_username)):
                         if only_retweets or include_retweets:
                             # If it's a self-retweet and we are specifically targeting/including retweets, skip it entirely.
                             # The original tweet will be caught anyway when it appears in the regular timeline
