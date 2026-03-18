@@ -318,12 +318,59 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
         return False 
 
 def get_tweet_date(article):
-    """Extracts the datetime from a tweet element."""
+    """Extracts the datetime from a tweet element. Retweets use the time they were retweeted via Snowflake ID."""
+    try:
+        # First attempt: Read from React Props to get the EXACT timeline placement time (especially for RTs)
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            return tweetData.id_str; // For RTs this is the RT ID, for normal tweets this is the tweet ID.
+        }
+        return null;
+        """
+        tweet_id_str = driver.execute_script(js_script, article)
+        if tweet_id_str and tweet_id_str.isdigit():
+            # Convert Snowflake ID to UTC timestamp
+            # Snowflake epoch: 1288834974657
+            timeline_id = int(tweet_id_str)
+            ts_ms = (timeline_id >> 22) + 1288834974657
+            dt = datetime.fromtimestamp(ts_ms / 1000.0)
+            # Adjust for Turkey Time (UTC+3)
+            # fromtimestamp usually gives local time if not tz aware, let's use utcfromtimestamp
+            dt_utc = datetime.utcfromtimestamp(ts_ms / 1000.0)
+            dt_turkey = dt_utc + timedelta(hours=3)
+            return dt_turkey
+
+    except Exception as e:
+        pass
+
+    # Fallback to HTML time tag if React Props fail
     try:
         time_element = article.find_element(By.TAG_NAME, "time")
         datetime_str = time_element.get_attribute("datetime")
         dt = parser.parse(datetime_str)
-        # Adjust for Turkey Time (UTC+3)
         dt = dt + timedelta(hours=3)
         return dt.replace(tzinfo=None) 
     except Exception:
@@ -478,9 +525,6 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     consecutive_old_retweets = 0
     consecutive_scrolls_without_new_tweets = 0
     
-    # We use this to estimate the position in the timeline.
-    current_timeline_date = datetime.now()
-
     while keep_scrolling:
         if stop_requested:
             log_debug("Durdurma istendi. Döngü kırılıyor.")
@@ -492,6 +536,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
             if stop_requested:
                 break
             try:
+                # get_tweet_date now returns the EXACT timeline date (retweet date for RTs)
                 t_datetime = get_tweet_date(article)
                 if not t_datetime:
                     continue
@@ -500,25 +545,12 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                 author_username = get_tweet_author_username(article)
                 article_is_pinned = is_pinned_tweet(article)
 
-                # Update our timeline estimate based on the target's own regular tweets.
-                # Do NOT update timeline date using pinned tweets or retweets.
-                if not article_is_retweet and not article_is_pinned:
-                    # Regular tweet gives us the best estimate of where we are in the timeline
-                    if t_datetime < current_timeline_date:
-                        current_timeline_date = t_datetime
-
-                # Calculate the effective date for range checking
-                # For retweets, we cannot rely on the original tweet date since it could be from years ago,
-                # but it was retweeted "today". Therefore, we evaluate it based on the timeline position.
-                effective_date = t_datetime
-                if article_is_retweet:
-                    effective_date = current_timeline_date
-
-                # If the timeline position or tweet date is within our requested range
-                if start_datetime <= effective_date <= end_datetime:
-                    # Reset early stop counters
-                    consecutive_old_tweets = 0 
-                    consecutive_old_retweets = 0
+                # If the tweet date (or retweet date) is within our requested range
+                if start_datetime <= t_datetime <= end_datetime:
+                    # Reset early stop counters unless it's a pinned tweet (pinned tweets are out of chronological order)
+                    if not article_is_pinned:
+                        consecutive_old_tweets = 0
+                        consecutive_old_retweets = 0
                     
                     # If it is a retweet but the author is the target user, it's a self-retweet
                     # User requested to ignore self-retweets when fetching retweets.
@@ -613,14 +645,14 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                             pass
 
                         collected_data.append({
-                            # Save with effective date so retweets appear chronologically mixed with regular tweets
-                            "Date": effective_date,
+                            "Date": t_datetime,
                             "Link": link,
                             "Username": username_from_link
                         })
-                        log_debug(f"Tweet bulundu: {effective_date} (Orijinal: {t_datetime}) - {link} (Kullanıcı: {username_from_link})")
+
+                        log_debug(f"Tweet bulundu: {t_datetime} - {link} (Kullanıcı: {username_from_link})")
                 
-                elif effective_date < start_datetime:
+                elif t_datetime < start_datetime:
                     # If we are encountering tweets older than our start range
                     if article_is_retweet:
                         consecutive_old_retweets += 1
