@@ -183,7 +183,11 @@
 </div>
 
 <div class="spinner-overlay" id="spinner">
-    <div class="processing-card">
+    <div class="processing-card position-relative">
+        <!-- Cancel Button inside processing card -->
+        <button class="btn btn-outline-danger btn-sm rounded-circle position-absolute" style="top: 15px; right: 15px; width: 35px; height: 35px; font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; z-index: 1050; padding: 0;" onclick="confirmCancel()">
+            &times;
+        </button>
         <div id="spinnerIcon" class="spinner-border text-primary mb-3" role="status" style="width: 3.5rem; height: 3.5rem;"></div>
         
         <h4 class="fw-bold mb-2" id="statusText">İşlem Başlıyor...</h4>
@@ -350,6 +354,33 @@
         poetryInterval = setInterval(updatePoetry, 10000); // Rotate every 10s
     }
 
+    let currentJobId = null;
+
+    function confirmCancel() {
+        if (!currentJobId) return;
+        if (confirm("Taramayı iptal etmek istediğinize emin misiniz?")) {
+            fetch(`/cancel/${currentJobId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("İşlem iptal edildi.");
+                    window.location.reload();
+                } else {
+                    alert("İptal işlemi başarısız: " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Cancel error", err);
+                alert("İptal edilirken bir hata oluştu.");
+            });
+        }
+    }
+
     document.getElementById('scrapeForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -391,6 +422,7 @@
         })
         .then(data => {
             if (data && data.job_id) {
+                currentJobId = data.job_id;
                 startPolling(data.job_id);
             } else if (data && data.error) {
                 alert("Hata: " + data.error);

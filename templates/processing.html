@@ -14,7 +14,7 @@
 <body>
 
 <div class="container d-flex justify-content-center">
-    <div class="card p-5 text-center shadow-lg" style="max-width: 500px; width: 100%; border-radius: 15px;">
+    <div class="card p-5 text-center shadow-lg position-relative" style="max-width: 500px; width: 100%; border-radius: 15px;">
         <div class="mb-4">
             <div id="spinner" class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
                 <span class="visually-hidden">Yükleniyor...</span>
@@ -38,6 +38,11 @@
                 <span id="progressInfo">0 / 0</span>
             </div>
         </div>
+
+        <!-- Cancel Button inside processing card -->
+        <button class="btn btn-outline-danger btn-sm rounded-circle position-absolute" style="top: 15px; right: 15px; width: 35px; height: 35px; font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; z-index: 1050; padding: 0;" onclick="confirmCancel()">
+            &times;
+        </button>
     </div>
 </div>
 
@@ -128,6 +133,31 @@
 
     // Start polling
     checkStatus();
+
+    // Cancel logic
+    function confirmCancel() {
+        if (confirm("Taramayı iptal etmek istediğinize emin misiniz?")) {
+            fetch(`/cancel/${jobId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("İşlem iptal edildi.");
+                    window.location.href = "/";
+                } else {
+                    alert("İptal işlemi başarısız: " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Cancel error", err);
+                alert("İptal edilirken bir hata oluştu.");
+            });
+        }
+    }
 </script>
 
 </body>
