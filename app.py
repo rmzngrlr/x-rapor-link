@@ -9,7 +9,8 @@ import io
 import time
 import logging
 from datetime import datetime
-from x_scraper import run_process, CONFIG_FILE
+import x_scraper
+from x_scraper import run_process, CONFIG_FILE, request_stop
 
 # Werkzeug loglarını filtrele (Sadece hataları göster, GET/POST isteklerini gizle)
 log = logging.getLogger('werkzeug')
@@ -171,7 +172,10 @@ def index():
             return redirect(url_for('index'))
 
         scrape_mode = request.form.get('scrape_mode', 'profile')
-        only_replies = request.form.get('only_replies') == 'true'
+        content_filter = request.form.get('content_filter', 'none')
+        only_replies = content_filter == 'only_replies'
+        include_retweets = content_filter == 'include_retweets'
+        only_retweets = content_filter == 'only_retweets'
         target_username = request.form.get('target_username')
         search_keyword = request.form.get('search_keyword')
         start_date = request.form.get('start_date')
@@ -217,6 +221,8 @@ def index():
                 'target_username': target_username,
                 'scrape_mode': scrape_mode,
                 'only_replies': only_replies,
+                'include_retweets': include_retweets,
+                'only_retweets': only_retweets,
                 'search_keyword': search_keyword,
                 'start_date_str': start_date_fmt,
                 'end_date_str': end_date_fmt,
@@ -347,6 +353,29 @@ def start_word_generation():
     JOB_QUEUE.put((new_job_id, scrape_kwargs))
 
     return redirect(url_for('processing', job_id=new_job_id))
+
+@app.route('/cancel/<job_id>', methods=['POST'])
+def cancel_job(job_id):
+    if job_id not in JOBS:
+        return jsonify({'success': False, 'message': 'İşlem bulunamadı.'}), 404
+
+    job = JOBS[job_id]
+
+    if job['status'] == 'completed':
+        return jsonify({'success': False, 'message': 'İşlem zaten tamamlanmış.'}), 400
+
+    if job['status'] in ['queued', 'running']:
+        # If it's running, signal the scraper to stop
+        if job['status'] == 'running':
+            request_stop()
+            log_debug(f"İptal sinyali gönderildi (İş: {job_id})")
+
+        # Mark as failed/canceled so the frontend knows it stopped
+        job['status'] = 'failed'
+        job['error'] = 'Kullanıcı tarafından iptal edildi.'
+        return jsonify({'success': True, 'message': 'İşlem iptal ediliyor.'})
+
+    return jsonify({'success': False, 'message': 'Bu işlem iptal edilemez.'}), 400
 
 @app.route('/sw.js')
 def service_worker():
