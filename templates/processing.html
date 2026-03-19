@@ -9,12 +9,30 @@
     <style>
         body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; height: 100vh; }
         .text-warning { font-size: 0.9rem; }
+        .timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #0078d7;
+            margin: 1rem 0;
+            letter-spacing: 2px;
+        }
+        .poetry-quote {
+            font-family: 'Georgia', serif;
+            font-style: italic;
+            color: #6c757d;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #eee;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
 
 <div class="container d-flex justify-content-center">
-    <div class="card p-5 text-center shadow-lg" style="max-width: 500px; width: 100%; border-radius: 15px;">
+    <div class="card p-5 text-center shadow-lg position-relative" style="max-width: 500px; width: 100%; border-radius: 15px;">
         <div class="mb-4">
             <div id="spinner" class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
                 <span class="visually-hidden">Yükleniyor...</span>
@@ -22,6 +40,8 @@
         </div>
 
         <h3 class="fw-bold mb-3" id="statusText">İşlem Devam Ediyor...</h3>
+
+        <div class="timer-display" id="timer">00:00</div>
 
         <div class="mb-4">
             <p class="text-secondary fw-medium mb-1" id="statusDesc">Lütfen bekleyin...</p>
@@ -38,10 +58,70 @@
                 <span id="progressInfo">0 / 0</span>
             </div>
         </div>
+
+        <div class="poetry-quote" id="randomQuote">
+            "ben öyle bilirim ki yaşamak<br>
+            berrak bir gökte çocuklar aşkına savaşmaktır"
+        </div>
+
+        <!-- Cancel Button inside processing card -->
+        <button class="btn btn-outline-danger btn-sm rounded-circle position-absolute" style="top: 15px; right: 15px; width: 35px; height: 35px; font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; z-index: 1050; padding: 0;" onclick="confirmCancel()">
+            &times;
+        </button>
     </div>
 </div>
 
 <script>
+    const poetryQuotes = [
+        "\"Amerikan rüyası görmüyorum, Amerikan kâbusu görüyorum.\"",
+        "\"varsın zındanların uğultusu vursun kulaklarımıza\nyaşamak bizimçün dokunaklı bir şarkı değil ki.\"",
+        "\"bileyim hangi suyun sakasıyım ya rabbelalemin\ntütmesi gereken ocak nerde?\"",
+        "\"gözlerim nemli değil\ngözlerim namlu.\"",
+        "\"Dilce susup\nbedence konuşulan bir çağda\nbiliyorum kolay anlaşılmayacak\"",
+        "\"boşanır damarlarıma yılların kahraman gürültüsü\nçünkü kavganın göbeğidir benim yerim.\"",
+        "\"Elbet bir hinlik vardım seni sevişimde\ney kanıma çakıllar karıştıran isyan\"",
+        "\"Sana durlanmış kelimeler getireceğim\npörsümüş bir dünyayı kahreden kelimeler\"",
+        "\"ama budandıkça fışkıran da bizleriz\nölüyoruz, demek ki yaşanılacak...\"",
+        "\"Derviş olamadın\nAma başıboş da kalmadın\n\nEy durup durup dalgalanan kalbim\"",
+        "\"Umudumuz, acımızdan daha büyük olmalı\"",
+        "\"Tek güvencemiz Allah’tır. Başka güvencemiz yoktur\""
+    ];
+
+    let timerInterval;
+    function startTimer() {
+        let seconds = 0;
+        const timerElement = document.getElementById('timer');
+        timerElement.innerText = "00:00";
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            seconds++;
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            timerElement.innerText =
+                (mins < 10 ? "0" + mins : mins) + ":" +
+                (secs < 10 ? "0" + secs : secs);
+        }, 1000);
+    }
+
+    let poetryInterval;
+
+    function updatePoetry() {
+        const randomIndex = Math.floor(Math.random() * poetryQuotes.length);
+        const quote = poetryQuotes[randomIndex].replace(/\n/g, '<br>');
+        document.getElementById('randomQuote').innerHTML = quote;
+    }
+
+    function startPoetryRotation() {
+        updatePoetry(); // Show first one immediately
+        clearInterval(poetryInterval);
+        poetryInterval = setInterval(updatePoetry, 10000); // Rotate every 10s
+    }
+
+    // Start timer and poetry immediately upon load
+    startTimer();
+    startPoetryRotation();
+
     // Wake Lock & NoSleep (Optional but good to keep)
     try {
         var noSleepVideo = document.createElement("video");
@@ -128,6 +208,31 @@
 
     // Start polling
     checkStatus();
+
+    // Cancel logic
+    function confirmCancel() {
+        if (confirm("Taramayı iptal etmek istediğinize emin misiniz?")) {
+            fetch(`/cancel/${jobId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("İşlem iptal edildi.");
+                    window.location.href = "/";
+                } else {
+                    alert("İptal işlemi başarısız: " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Cancel error", err);
+                alert("İptal edilirken bir hata oluştu.");
+            });
+        }
+    }
 </script>
 
 </body>
