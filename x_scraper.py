@@ -318,12 +318,59 @@ def login_to_x(driver, username, password, target_username=None, interaction_cal
         return False 
 
 def get_tweet_date(article):
-    """Extracts the datetime from a tweet element."""
+    """Extracts the datetime from a tweet element. Retweets use the time they were retweeted via Snowflake ID."""
+    try:
+        # First attempt: Read from React Props to get the EXACT timeline placement time (especially for RTs)
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            return tweetData.id_str; // For RTs this is the RT ID, for normal tweets this is the tweet ID.
+        }
+        return null;
+        """
+        tweet_id_str = driver.execute_script(js_script, article)
+        if tweet_id_str and tweet_id_str.isdigit():
+            # Convert Snowflake ID to UTC timestamp
+            # Snowflake epoch: 1288834974657
+            timeline_id = int(tweet_id_str)
+            ts_ms = (timeline_id >> 22) + 1288834974657
+            dt = datetime.fromtimestamp(ts_ms / 1000.0)
+            # Adjust for Turkey Time (UTC+3)
+            # fromtimestamp usually gives local time if not tz aware, let's use utcfromtimestamp
+            dt_utc = datetime.utcfromtimestamp(ts_ms / 1000.0)
+            dt_turkey = dt_utc + timedelta(hours=3)
+            return dt_turkey
+
+    except Exception as e:
+        pass
+
+    # Fallback to HTML time tag if React Props fail
     try:
         time_element = article.find_element(By.TAG_NAME, "time")
         datetime_str = time_element.get_attribute("datetime")
         dt = parser.parse(datetime_str)
-        # Adjust for Turkey Time (UTC+3)
         dt = dt + timedelta(hours=3)
         return dt.replace(tzinfo=None) 
     except Exception:
@@ -352,6 +399,44 @@ def get_tweet_link(article):
     return None
 
 def is_retweet(article):
+    """Checks if the tweet is a retweet using React Props."""
+    try:
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            return !!tweetData.retweeted_status;
+        }
+        return false;
+        """
+        is_rt = driver.execute_script(js_script, article)
+        if is_rt is True or is_rt is False:
+            return is_rt
+    except Exception:
+        pass
+
+    # Fallback to DOM check
     try:
         social_context = article.find_elements(By.CSS_SELECTOR, "[data-testid='socialContext']")
         if social_context:
@@ -366,6 +451,115 @@ def is_retweet(article):
         return False
     except Exception:
         return False
+
+def is_self_retweet(article):
+    """Checks if the tweet is a self-retweet (user retweeted their own tweet)."""
+    try:
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData && tweetData.retweeted_status) {
+            // Check if the original author is the same as the retweeter
+            if (tweetData.user && tweetData.retweeted_status.user) {
+                return tweetData.user.screen_name.toLowerCase() === tweetData.retweeted_status.user.screen_name.toLowerCase();
+            }
+        }
+        return false;
+        """
+        is_self_rt = driver.execute_script(js_script, article)
+        if is_self_rt is True or is_self_rt is False:
+            return is_self_rt
+    except Exception:
+        pass
+    return False
+
+def is_pinned_tweet(article):
+    """Checks if the tweet is pinned."""
+    try:
+        social_context = article.find_elements(By.CSS_SELECTOR, "[data-testid='socialContext']")
+        if social_context:
+            text = social_context[0].text.lower()
+            if "sabitle" in text or "pinned" in text or "épinglé" in text:
+                return True
+        return False
+    except Exception:
+        return False
+
+def get_tweet_author_username(article):
+    """Extracts the username (handle) of the tweet's author."""
+    try:
+        # First attempt: From React Props (most reliable)
+        driver = article.parent
+        js_script = """
+        function getReactProps(dom) {
+            const key = Object.keys(dom).find(key => key.startsWith("__reactProps$") || key.startsWith("__reactFiber$"));
+            return key ? dom[key] : null;
+        }
+        function findTweetData(fiber) {
+            if (!fiber) return null;
+            let curr = fiber;
+            while (curr) {
+                if (curr.memoizedProps && curr.memoizedProps.tweet) {
+                    return curr.memoizedProps.tweet;
+                }
+                if (curr.props && curr.props.tweet) {
+                    return curr.props.tweet;
+                }
+                curr = curr.return;
+                if (curr && curr.type && curr.type === 'body') break;
+            }
+            return null;
+        }
+        const dom = arguments[0];
+        const fiber = getReactProps(dom);
+        const tweetData = findTweetData(fiber);
+        if (tweetData) {
+            if (tweetData.retweeted_status && tweetData.retweeted_status.user) {
+                return tweetData.retweeted_status.user.screen_name.toLowerCase();
+            } else if (tweetData.user) {
+                return tweetData.user.screen_name.toLowerCase();
+            }
+        }
+        return null;
+        """
+        username = driver.execute_script(js_script, article)
+        if username:
+            return username.lower()
+    except Exception:
+        pass
+
+    try:
+        # Fallback to DOM elements
+        user_element = article.find_element(By.CSS_SELECTOR, "[data-testid='User-Name']")
+        links = user_element.find_elements(By.TAG_NAME, "a")
+        for link in links:
+            href = link.get_attribute("href")
+            if href and "x.com/" in href:
+                return href.split("x.com/")[-1].split("?")[0].split("/")[0].lower()
+    except Exception:
+        pass
+    return None
 
 def get_reply_info(article):
     try:
@@ -410,7 +604,7 @@ def get_reply_info(article):
     except Exception as e:
         return False, None
 
-def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False):
+def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
@@ -450,6 +644,7 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     
     keep_scrolling = True
     consecutive_old_tweets = 0
+    consecutive_old_retweets = 0
     consecutive_scrolls_without_new_tweets = 0
     
     while keep_scrolling:
@@ -463,35 +658,64 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
             if stop_requested:
                 break
             try:
+                # get_tweet_date now returns the EXACT timeline date (retweet date for RTs)
                 t_datetime = get_tweet_date(article)
                 if not t_datetime:
                     continue
                 
+                article_is_retweet = is_retweet(article)
+                author_username = get_tweet_author_username(article)
+                article_is_pinned = is_pinned_tweet(article)
+
+                # If the tweet date (or retweet date) is within our requested range
                 if start_datetime <= t_datetime <= end_datetime:
-                    consecutive_old_tweets = 0 
+                    # Reset early stop counters unless it's a pinned tweet (pinned tweets are out of chronological order)
+                    if not article_is_pinned:
+                        consecutive_old_tweets = 0
+                        consecutive_old_retweets = 0
                     
-                    if is_retweet(article): continue
+                    # If it is a retweet but the author is the target user, it's a self-retweet
+                    # User requested to ignore self-retweets when fetching retweets.
+                    # Self-retweet filtering must be strictly enforced (works for both profile and list mode).
+                    if article_is_retweet and (is_self_retweet(article) or (clean_target_username and author_username == clean_target_username)):
+                        if only_retweets or include_retweets:
+                            # If it's a self-retweet and we are specifically targeting/including retweets, skip it entirely.
+                            # The original tweet will be caught anyway when it appears in the regular timeline
+                            # (if it's within the requested date range). We strictly do not want to record self-retweets
+                            # as "retweets".
+                            continue
                     
-                    is_rep, reply_to_handle = get_reply_info(article)
-                    
-                    if not only_replies:
-                        if is_rep: continue
+                    if only_retweets:
+                        if not article_is_retweet:
+                            continue
                     else:
-                        final_is_reply = is_rep
-                        if not final_is_reply:
-                            try:
-                                txt = article.text
-                                if "Yanıtlanan" in txt or "Replying to" in txt or "En réponse à" in txt:
-                                    final_is_reply = True
-                            except:
-                                pass
-                        
-                        if not final_is_reply:
+                        if article_is_retweet and not include_retweets:
                             continue
 
-                        if reply_to_handle and clean_target_username:
-                            if reply_to_handle.lower() == clean_target_username:
+                    # If it's a retweet, we bypass reply filtering since retweets aren't considered replies
+                    # in the context of what the user wants to fetch (unless it's a retweet of a reply,
+                    # but usually users just want the retweets as they are).
+                    if not article_is_retweet:
+                        is_rep, reply_to_handle = get_reply_info(article)
+
+                        if not only_replies:
+                            if is_rep: continue
+                        else:
+                            final_is_reply = is_rep
+                            if not final_is_reply:
+                                try:
+                                    txt = article.text
+                                    if "Yanıtlanan" in txt or "Replying to" in txt or "En réponse à" in txt:
+                                        final_is_reply = True
+                                except:
+                                    pass
+
+                            if not final_is_reply:
                                 continue
+
+                            if reply_to_handle and clean_target_username:
+                                if reply_to_handle.lower() == clean_target_username:
+                                    continue
 
                     if search_keyword:
                         try:
@@ -522,7 +746,9 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                                 link_parts = link.split('/')
                                 if len(link_parts) > 3:
                                     link_username = link_parts[3].lower()
-                                    if link_username != clean_target_username:
+                                    # If it's a retweet, the link_username will be the original author's username,
+                                    # which is different from the target username. We shouldn't skip it in that case.
+                                    if not article_is_retweet and link_username != clean_target_username:
                                         continue
                             except Exception:
                                 continue
@@ -543,16 +769,25 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                             "Link": link,
                             "Username": username_from_link
                         })
+
                         log_debug(f"Tweet bulundu: {t_datetime} - {link} (Kullanıcı: {username_from_link})")
                 
                 elif t_datetime < start_datetime:
-                    consecutive_old_tweets += 1
-                    if consecutive_old_tweets >= 10:
-                        log_debug("Başlangıç tarihinden eski tweetlere ulaşıldı. Durduruluyor.")
+                    # If we are encountering tweets older than our start range
+                    if article_is_retweet:
+                        consecutive_old_retweets += 1
+                    else:
+                        consecutive_old_tweets += 1
+
+                    # We need to be careful not to stop prematurely if an account posts many old retweets in a row
+                    # But if we see 10 of their OWN tweets that are too old, or 40 retweets that are evaluated as too old, we stop.
+                    if consecutive_old_tweets >= 10 or consecutive_old_retweets >= 40:
+                        log_debug(f"Başlangıç tarihinden eski içeriklere ulaşıldı (Kendi: {consecutive_old_tweets}, RT: {consecutive_old_retweets}). Durduruluyor.")
                         keep_scrolling = False
                         break
                 else:
                     consecutive_old_tweets = 0
+                    consecutive_old_retweets = 0
 
             except Exception as e:
                 continue
@@ -644,7 +879,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Excel kaydetme hatası: {e}", flush=True)
         return False, [], None
 
-def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False):
+def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     global stop_requested
     stop_requested = False
     start_time_perf = time.time()
@@ -677,7 +912,7 @@ def run_process(username, password, target_username, start_date_str, end_date_st
             if stop_requested: break
             log(f"{scrape_mode} hedefi taranıyor: {target} ({i+1}/{len(targets)})...")
             try:
-                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies)
+                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, include_retweets, only_retweets)
                 if target_data:
                     # In profile mode, we want to keep the order per target, sorted by date
                     # In list mode, we might get mixed results, but we'll sort everything at the end
@@ -690,14 +925,10 @@ def run_process(username, password, target_username, start_date_str, end_date_st
                 log(f"{target} taranırken hata: {e}")
                 continue
         
-        # If in list mode, sort all data by Username then Date to group by user
-        if scrape_mode == 'list' and all_data:
-            log("Liste Modu için veriler Kullanıcı ve Tarihe göre sıralanıyor...")
+        # Ensure all data is strictly sorted chronologically by Date
+        if all_data:
             try:
-                # Sort by Date first (secondary key)
                 all_data.sort(key=lambda x: x['Date'])
-                # Then sort by Username (primary key) - Python's sort is stable
-                all_data.sort(key=lambda x: x['Username'].lower())
             except Exception as e:
                 log(f"Sıralama hatası: {e}")
         

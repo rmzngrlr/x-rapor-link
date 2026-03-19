@@ -103,19 +103,48 @@
                             <div class="form-text text-muted" id="targetHelp">Birden fazla kullanıcı için aralarına virgül (,) koyunuz.</div>
                         </div>
 
-                        <div class="mb-3" id="repliesOptionContainer">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="true" id="only_replies" name="only_replies">
-                                <label class="form-check-label" for="only_replies">
-                                    Sadece Yanıtları Tara
-                                </label>
-                            </div>
-                        </div>
-                        
                         <div class="mb-3">
-                            <label for="search_keyword" class="form-label">Anahtar Kelime Filtresi (İsteğe Bağlı)</label>
-                            <input type="text" class="form-control" id="search_keyword" name="search_keyword" placeholder="örn: ekonomi, dolar; borsa">
-                            <div class="form-text text-muted">Aralarına ; koyarak VEYA, , koyarak VE mantığı kullanabilirsiniz.</div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters" id="advancedFiltersBtn">
+                                + İleri Düzey Filtreleme (İçerik / Kelime)
+                            </button>
+                        </div>
+
+                        <div class="collapse mb-3" id="advancedFilters">
+                            <div class="card card-body bg-light border-0">
+                                <div class="mb-3" id="repliesOptionContainer">
+                                    <label class="form-label fw-bold text-secondary" style="font-size: 0.9em;">İçerik Filtreleme</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input filter-radio" type="radio" value="none" id="filter_none" name="content_filter" checked>
+                                        <label class="form-check-label" for="filter_none">
+                                            Sadece Kendi Tweetlerini Al (Varsayılan)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input filter-radio" type="radio" value="only_replies" id="only_replies" name="content_filter">
+                                        <label class="form-check-label" for="only_replies">
+                                            Sadece Yanıtları Tara
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input filter-radio" type="radio" value="include_retweets" id="include_retweets" name="content_filter">
+                                        <label class="form-check-label" for="include_retweets">
+                                            Retweetleri de Dahil Et
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input filter-radio" type="radio" value="only_retweets" id="only_retweets" name="content_filter">
+                                        <label class="form-check-label" for="only_retweets">
+                                            Sadece Retweetleri Al
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label for="search_keyword" class="form-label fw-bold text-secondary" style="font-size: 0.9em;">Anahtar Kelime Filtresi</label>
+                                    <input type="text" class="form-control form-control-sm" id="search_keyword" name="search_keyword" placeholder="örn: ekonomi, dolar; borsa">
+                                    <div class="form-text text-muted" style="font-size: 0.8em;">Aralarına ; koyarak VEYA, , koyarak VE mantığı kullanabilirsiniz.</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="row mb-3">
@@ -232,6 +261,7 @@
         const input = document.getElementById('target_username');
         const help = document.getElementById('targetHelp');
         const repliesContainer = document.getElementById('repliesOptionContainer');
+        const advancedBtn = document.getElementById('advancedFiltersBtn');
         const standardInputs = document.getElementById('standardInputs');
         const screenshotInputs = document.getElementById('screenshotInputs');
         const submitBtn = document.getElementById('submitBtn');
@@ -263,14 +293,28 @@
                 prefix.style.display = "block";
                 input.placeholder = "kullanici1, kullanici2";
                 help.innerText = "Birden fazla kullanıcı için aralarına virgül (,) koyunuz.";
+
+                advancedBtn.style.display = "inline-block";
                 repliesContainer.style.display = "block";
+
+                document.getElementById('only_replies').disabled = false;
+                document.getElementById('only_replies').parentElement.style.opacity = "1";
             } else {
                 label.innerText = "Liste URL'si";
                 prefix.style.display = "none";
                 input.placeholder = "https://x.com/i/lists/12345...";
                 help.innerText = "Tarayıcınızdan listenin linkini kopyalayıp yapıştırın.";
-                repliesContainer.style.display = "none";
-                document.getElementById('only_replies').checked = false;
+
+                advancedBtn.style.display = "inline-block";
+                repliesContainer.style.display = "block";
+
+                // Disable 'Sadece Yanıtları Tara' for list mode
+                document.getElementById('only_replies').disabled = true;
+                document.getElementById('only_replies').parentElement.style.opacity = "0.5";
+
+                if(document.getElementById('only_replies').checked) {
+                    document.getElementById('filter_none').checked = true;
+                }
             }
         }
     }
@@ -392,6 +436,9 @@
     }
 </script>
 
+
+<!-- Bootstrap JS for Collapse functionality -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
     if ('serviceWorker' in navigator) {
