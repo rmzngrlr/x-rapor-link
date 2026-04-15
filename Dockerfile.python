@@ -34,8 +34,13 @@ RUN mkdir -p /app/chrome_profile && chmod -R 777 /app/chrome_profile
 # Expose the Flask port
 EXPOSE 3000
 
+# Ensure /tmp is cleaned up before starting
+# We can do this in a wrapper script or chaining the command.
+# Chaining the command ensures stale locks are removed before the app starts.
+
 # Use tini as the entrypoint to handle zombie processes properly
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Start the Flask app using xvfb-run to provide a virtual display for Chrome
-CMD ["xvfb-run", "-a", "python3", "app.py"]
+# Start the Flask app using xvfb-run to provide a virtual display for Chrome,
+# but first clean up any stale temporary files and chrome profiles
+CMD ["sh", "-c", "rm -rf /tmp/* /app/chrome_profile/Singleton* && xvfb-run -a python3 app.py"]
