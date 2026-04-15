@@ -13,6 +13,7 @@ services:
       - ./twitter_cookies.json:/app/twitter_cookies.json
       - ./temp:/app/temp
       - ./chrome_profile:/app/chrome_profile
+    shm_size: '2gb'
     restart: unless-stopped
     depends_on:
       - node_service
