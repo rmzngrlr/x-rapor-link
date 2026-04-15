@@ -1,0 +1,43 @@
+FROM ubuntu:24.04
+
+# Zaman dilimi seçimi ve etkileşimsiz apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Istanbul
+
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    unzip \
+    libxi6 \
+    xvfb \
+    fonts-liberation \
+    libappindicator3-1 \
+    libasound2t64 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libnss3 \
+    lsb-release \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Google Chrome Stable Kurulumu
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get update \
+    && apt-get install -y ./google-chrome-stable_current_amd64.deb \
+    && rm google-chrome-stable_current_amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js 20 Kurulumu
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/x-screenshot-araci
+
+# Yalnızca package.json dosyalarını kopyalayıp install edelim (volume'dan gelmeden önce image içinde olsun)
+COPY x-screenshot-araci/package*.json ./
+RUN npm install
+
+# Sadece çalışması için display variable belirliyoruz ve xvfb-run kullanıyoruz.
+CMD ["xvfb-run", "-a", "node", "server.js"]

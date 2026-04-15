@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  python_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: python_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  x_rapor:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    container_name: x_rapor
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    volumes:
+      - .:/app
+      - node_modules_volume:/app/x-screenshot-araci/node_modules
+    depends_on:
+      - python_app
+
+volumes:
+  node_modules_volume:
