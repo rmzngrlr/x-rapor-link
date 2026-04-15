@@ -131,6 +131,10 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-infobars")
+
+        # Docker uyumluluk bayrakları
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         try:
             DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir)
              # Ensure consistent window size and Force Focus
@@ -160,6 +164,8 @@ def get_or_create_driver(username, password):
                         new_options.add_argument("--disable-backgrounding-occluded-windows")
                         new_options.add_argument("--disable-renderer-backgrounding")
                         new_options.add_argument("--disable-infobars")
+                        new_options.add_argument("--no-sandbox")
+                        new_options.add_argument("--disable-dev-shm-usage")
 
                         DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
                         try:

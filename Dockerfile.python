@@ -1,0 +1,52 @@
+FROM ubuntu:24.04
+
+# Zaman dilimi seçimi ve etkileşimsiz apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Istanbul
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-full \
+    python3-setuptools \
+    wget \
+    curl \
+    unzip \
+    libxi6 \
+    xvfb \
+    fonts-liberation \
+    libappindicator3-1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libnss3 \
+    lsb-release \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Google Chrome Stable Kurulumu
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get update \
+    && apt-get install -y ./google-chrome-stable_current_amd64.deb \
+    && rm google-chrome-stable_current_amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Çalışma dizini
+WORKDIR /app
+
+# Venv oluştur
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# requirements.txt kopyala ve kur
+COPY requirements.txt .
+RUN pip install --upgrade pip \
+    && pip install setuptools \
+    && pip install -r requirements.txt
+
+# /app bir paylaşımlı volume olacağı için, diğer dosyaları direkt bağlayacağız.
+# Çalışma komutu (Xvfb ile çalıştırıyoruz)
+# Sadece çalışması için display variable belirliyoruz ve xvfb-run kullanıyoruz.
+CMD ["xvfb-run", "-a", "python", "app.py"]

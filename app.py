@@ -89,7 +89,8 @@ def worker_loop():
                         start_time_perf = time.time()
                         # Call Node.js service
                         # We are inside a thread, so this is synchronous blocking call which is fine
-                        response = requests.post('http://localhost:3000/generate-word', json={'urls': links, 'jobId': job_id}, stream=True)
+                        # Docker'da Node.js servisine internal x_rapor hostname'i üzerinden erişilecek
+                        response = requests.post('http://x_rapor:3000/generate-word', json={'urls': links, 'jobId': job_id}, stream=True)
                         
                         if response.status_code == 200:
                             elapsed_time = time.time() - start_time_perf
