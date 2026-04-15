@@ -8,7 +8,7 @@ const fs = require('fs');
 const { Document, Packer, Paragraph, ImageRun, TextRun, PageBreak, ExternalHyperlink } = require('docx');
 
 const app = express();
-const port = 3000;
+const port = 3007;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
@@ -36,6 +36,7 @@ async function getBrowser() {
     console.log("Tarayıcı başlatılıyor...");
     globalBrowser = await puppeteer.launch({
         headless: "new",
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
             '--no-sandbox', '--disable-setuid-sandbox',
             '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas',

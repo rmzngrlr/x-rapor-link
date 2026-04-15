@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  python_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: python_service
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config.json:/app/config.json
+      - ./twitter_cookies.json:/app/twitter_cookies.json
+      - ./temp:/app/temp
+      - ./chrome_profile:/app/chrome_profile
+    shm_size: '2gb'
+    restart: unless-stopped
+    depends_on:
+      - node_service
+
+  node_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    container_name: node_service
+    ports:
+      - "3007:3007"
+    volumes:
+      # We need to map these volumes to /app so Node.js can access them via ../
+      - ./twitter_cookies.json:/app/twitter_cookies.json
+      - ./temp:/app/temp
+    restart: unless-stopped

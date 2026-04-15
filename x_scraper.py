@@ -131,8 +131,16 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-infobars")
+
+        # Docker / Headless Flags
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--remote-debugging-pipe")
+
         try:
-            DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir)
+            DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=True)
              # Ensure consistent window size and Force Focus
             try:
                 DRIVER.minimize_window()
@@ -161,7 +169,14 @@ def get_or_create_driver(username, password):
                         new_options.add_argument("--disable-renderer-backgrounding")
                         new_options.add_argument("--disable-infobars")
 
-                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
+                        # Docker / Headless Flags
+                        new_options.add_argument("--headless=new")
+                        new_options.add_argument("--no-sandbox")
+                        new_options.add_argument("--disable-dev-shm-usage")
+                        new_options.add_argument("--disable-gpu")
+                        new_options.add_argument("--remote-debugging-pipe")
+
+                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version, use_subprocess=True)
                         try:
                             DRIVER.minimize_window()
                             time.sleep(0.5)

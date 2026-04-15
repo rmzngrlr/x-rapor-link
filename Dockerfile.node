@@ -1,0 +1,47 @@
+FROM node:20-slim
+
+# Install necessary Linux libraries for Puppeteer headless mode and Google Chrome
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && sh -c 'echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' \
+    && apt-get update && apt-get install -y \
+    google-chrome-stable \
+    ca-certificates \
+    fonts-liberation \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libxss1 \
+    libgtk-3-0 \
+    wget \
+    xdg-utils \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variable to skip Puppeteer Chromium download and use system Chrome
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
+# Set working directory for the node app.
+# We put it in /app/x-screenshot-araci to match the path depth expectations for ../temp etc.
+WORKDIR /app/x-screenshot-araci
+
+# Copy package.json and install dependencies
+COPY x-screenshot-araci/package*.json ./
+RUN npm install
+
+# Copy the Node.js service source code
+COPY x-screenshot-araci/ .
+
+# Expose the Node.js port
+EXPOSE 3007
+
+# Start the Node.js server
+CMD ["node", "server.js"]
