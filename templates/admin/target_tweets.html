@@ -118,14 +118,29 @@
                 return;
             }
 
-            const links = Array.from(checkboxes).map(cb => cb.value).join('\n');
+            // Collect links. Since the UI shows newest first, we reverse them
+            // so that the copied text is ordered from oldest to newest.
+            const linksArray = Array.from(checkboxes).map(cb => cb.value);
+            linksArray.reverse();
+            const linksText = linksArray.join('\n');
 
-            navigator.clipboard.writeText(links).then(function() {
-                alert(checkboxes.length + " link kopyalandı!");
-            }, function(err) {
+            // Fallback for non-HTTPS copy to clipboard
+            const textarea = document.createElement("textarea");
+            textarea.value = linksText;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                alert(checkboxes.length + " link eskiden yeniye doğru kopyalandı!");
+            } catch (err) {
                 console.error('Kopyalama hatası: ', err);
                 alert("Kopyalama başarısız oldu.");
-            });
+            }
+
+            document.body.removeChild(textarea);
         }
     </script>
 </body>
