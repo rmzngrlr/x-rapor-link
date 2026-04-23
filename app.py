@@ -56,8 +56,18 @@ import atexit
 # Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
     scheduler = BackgroundScheduler(daemon=True)
+    # Concurrency lock for manual triggers
+    MANUAL_SCRAPE_LOCK = threading.Lock()
+
+    def locked_scheduled_scrape():
+        if not MANUAL_SCRAPE_LOCK.locked():
+            with MANUAL_SCRAPE_LOCK:
+                run_incremental_scraping()
+        else:
+            log_debug("Zamanlanmış tarama atlandı, çünkü manuel bir tarama devam ediyor.")
+
     # Her 6 saatte bir (00:00, 06:00, 12:00, 18:00) çalışacak görev
-    scheduler.add_job(run_incremental_scraping, 'cron', hour='0,6,12,18', minute=0)
+    scheduler.add_job(locked_scheduled_scrape, 'cron', hour='0,6,12,18', minute=0)
     scheduler.start()
     log_debug("Zamanlanmış görevler (Scheduler) başlatıldı. (Her gün 00:00, 06:00, 12:00, 18:00)")
     # Uygulama kapandığında scheduler'ı durdur
@@ -240,12 +250,10 @@ def admin_change_password():
 
     return redirect(url_for('admin_dashboard'))
 
-# Concurrency lock for manual triggers
-MANUAL_SCRAPE_LOCK = threading.Lock()
-
 @app.route('/admin/trigger_scrape', methods=['POST'])
 @admin_required
 def admin_trigger_scrape():
+    global MANUAL_SCRAPE_LOCK
     if MANUAL_SCRAPE_LOCK.locked():
         flash('Şu anda arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
         return redirect(url_for('admin_dashboard'))
@@ -270,7 +278,7 @@ def admin_dashboard():
             with conn.cursor() as cursor:
                 # Get targets and their tweet counts
                 cursor.execute("""
-                    SELECT t.id, t.target_name, t.target_type, COUNT(tw.id) as tweet_count
+                    SELECT t.id, t.target_name, t.target_type, t.last_scraped_at, COUNT(tw.id) as tweet_count
                     FROM targets t
                     LEFT JOIN tweets tw ON t.id = tw.target_id
                     GROUP BY t.id
@@ -362,6 +370,26 @@ def admin_delete_all_target_tweets(target_id):
             conn.close()
 
     return redirect(url_for('admin_view_target', target_id=target_id))
+
+@app.route('/admin/tweet/delete/<int:tweet_id>', methods=['POST'])
+@admin_required
+def admin_delete_single_tweet(tweet_id):
+    target_id = request.form.get('target_id')
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM tweets WHERE id = %s", (tweet_id,))
+            conn.commit()
+            flash('Seçili link başarıyla silindi.', 'success')
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    if target_id:
+        return redirect(url_for('admin_view_target', target_id=target_id))
+    return redirect(url_for('admin_dashboard'))
 
 
 @app.route('/', methods=['GET', 'POST'])

@@ -72,9 +72,17 @@ def init_db():
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     target_name VARCHAR(255) NOT NULL,
                     target_type ENUM('user', 'list') NOT NULL,
+                    last_scraped_at DATETIME NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            # Try to alter targets table in case it was created before the column was added
+            try:
+                cursor.execute("ALTER TABLE targets ADD COLUMN last_scraped_at DATETIME NULL")
+            except Exception as alt_e:
+                # Ignore if column already exists
+                pass
 
             # Table: tweets
             cursor.execute("""

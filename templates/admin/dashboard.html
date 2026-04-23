@@ -90,6 +90,7 @@
                             <tr>
                                 <th>Hedef</th>
                                 <th>Tür</th>
+                                <th>Son Tarama</th>
                                 <th>Toplanan Tweet</th>
                                 <th class="text-end">İşlemler</th>
                             </tr>
@@ -99,6 +100,13 @@
                             <tr>
                                 <td>{{ target.target_name }}</td>
                                 <td>{{ 'Kullanıcı' if target.target_type == 'user' else 'Liste' }}</td>
+                                <td>
+                                    {% if target.last_scraped_at %}
+                                        {{ target.last_scraped_at.strftime('%d-%m-%Y %H:%M') }}
+                                    {% else %}
+                                        <span class="text-muted">Hiç taranmadı</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ target.tweet_count }}</td>
                                 <td class="text-end">
                                     <a href="{{ url_for('admin_view_target', target_id=target.id) }}" class="btn btn-primary btn-sm">Görüntüle</a>
