@@ -61,8 +61,8 @@ def run_incremental_scraping():
             # though Twitter API/scraper might not be second-perfect. We filter on insertion anyway.
             start_datetime = last_tweet_date
         else:
-            # Default to 30 days ago if no data exists
-            start_datetime = datetime.now() - timedelta(days=30)
+            # Default to 1 day (24 hours) ago if no data exists
+            start_datetime = datetime.now() - timedelta(days=1)
 
         end_datetime = datetime.now()
 
