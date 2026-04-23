@@ -66,6 +66,9 @@ def run_incremental_scraping():
 
         end_datetime = datetime.now()
 
+        # Adjust target type to match x_scraper parameter
+        scrape_mode_param = 'profile' if target_type == 'user' else 'list'
+
         # Run scraper
         try:
             print(f"  Scraping from {start_datetime} to {end_datetime}...")
@@ -77,7 +80,7 @@ def run_incremental_scraping():
                 end_date_str=None,
                 start_datetime_obj=start_datetime,
                 end_datetime_obj=end_datetime,
-                scrape_mode=target_type,
+                scrape_mode=scrape_mode_param,
                 only_replies=False,
                 include_retweets=False, # We don't include RTs based on user request (only normal tweets)
                 only_retweets=False,
@@ -117,9 +120,17 @@ def run_incremental_scraping():
                         except Exception as e:
                             print(f"    Error inserting tweet {link}: {e}")
 
+                # Update last_scraped_at timestamp
+                with conn.cursor() as cursor:
+                    cursor.execute("UPDATE targets SET last_scraped_at = %s WHERE id = %s", (end_datetime, target_id))
+
                 conn.commit()
                 print(f"  Completed {target_name}: {new_tweets_count} new tweets saved.")
             else:
+                # Update last_scraped_at timestamp even if no tweets found
+                with conn.cursor() as cursor:
+                    cursor.execute("UPDATE targets SET last_scraped_at = %s WHERE id = %s", (end_datetime, target_id))
+                conn.commit()
                 print(f"  Completed {target_name}: 0 new tweets.")
 
         except Exception as e:
