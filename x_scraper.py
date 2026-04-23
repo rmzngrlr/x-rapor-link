@@ -879,7 +879,7 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Excel kaydetme hatası: {e}", flush=True)
         return False, [], None
 
-def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
+def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False, start_datetime_obj=None, end_datetime_obj=None, skip_excel=False):
     global stop_requested
     stop_requested = False
     start_time_perf = time.time()
@@ -890,8 +890,12 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         if DEBUG_MODE:
             print(msg, flush=True)
 
-    start_datetime = parse_datetime(start_date_str, start_time_str)
-    end_datetime = parse_datetime(end_date_str, end_time_str)
+    if start_datetime_obj and end_datetime_obj:
+        start_datetime = start_datetime_obj
+        end_datetime = end_datetime_obj
+    else:
+        start_datetime = parse_datetime(start_date_str, start_time_str)
+        end_datetime = parse_datetime(end_date_str, end_time_str)
 
     if not start_datetime or not end_datetime:
         log("Hata: Geçersiz tarih/saat formatı.")
@@ -932,20 +936,32 @@ def run_process(username, password, target_username, start_date_str, end_date_st
             except Exception as e:
                 log(f"Sıralama hatası: {e}")
         
+        elapsed_time = time.time() - start_time_perf
+        link_list = [item['Link'] for item in all_data] if all_data else []
+
+        if skip_excel:
+            log(f"İşlem başarıyla tamamlandı! (Excel atlandı, {len(all_data)} öğe)")
+            return {
+                "count": len(all_data),
+                "time": elapsed_time,
+                "links": link_list,
+                "excel_file": None,
+                "raw_data": all_data,
+                "gs_status": None
+            }
+
         log("Excel'e kaydediliyor...")
         result_count, filtered_data, excel_obj = save_to_excel(all_data, output_file)
         
         if result_count is not False:
-            elapsed_time = time.time() - start_time_perf
             log("İşlem başarıyla tamamlandı!")
             
-            link_list = [item['Link'] for item in filtered_data] if filtered_data else []
-
             return {
                 "count": result_count, 
                 "time": elapsed_time, 
                 "links": link_list,
                 "excel_file": excel_obj,
+                "raw_data": filtered_data,
                 "gs_status": None
             }
         else:
