@@ -14,7 +14,7 @@ def load_auth_credentials():
             pass
     return "", ""
 
-def run_incremental_scraping():
+def run_incremental_scraping(specific_target_id=None):
     print(f"[{datetime.now()}] Starting incremental scraping job...")
     auth_user, auth_pass = load_auth_credentials()
 
@@ -30,7 +30,10 @@ def run_incremental_scraping():
     targets = []
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM targets")
+            if specific_target_id:
+                cursor.execute("SELECT * FROM targets WHERE id = %s", (specific_target_id,))
+            else:
+                cursor.execute("SELECT * FROM targets")
             targets = cursor.fetchall()
     except Exception as e:
         print(f"Failed to fetch targets: {e}")

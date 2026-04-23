@@ -265,7 +265,32 @@ def admin_trigger_scrape():
     # Run the scraping task in a separate background thread so it doesn't block the UI
     scrape_thread = threading.Thread(target=locked_scrape, daemon=True)
     scrape_thread.start()
-    flash('Arka planda tarama işlemi başlatıldı! Bu işlem hedeflerin sayısına göre biraz zaman alabilir.', 'success')
+    flash('Arka planda tarama işlemi başlatıldı! (Tüm Hedefler)', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/trigger_scrape/<int:target_id>', methods=['POST'])
+@admin_required
+def admin_trigger_scrape_target(target_id):
+    global MANUAL_SCRAPE_LOCK
+    if MANUAL_SCRAPE_LOCK.locked():
+        flash('Şu anda arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
+        # Try to redirect back to target view if possible
+        referer = request.headers.get("Referer")
+        if referer and "target/" in referer:
+            return redirect(url_for('admin_view_target', target_id=target_id))
+        return redirect(url_for('admin_dashboard'))
+
+    def locked_scrape_target():
+        with MANUAL_SCRAPE_LOCK:
+            run_incremental_scraping(specific_target_id=target_id)
+
+    scrape_thread = threading.Thread(target=locked_scrape_target, daemon=True)
+    scrape_thread.start()
+    flash('Bu hedef için tarama arka planda başlatıldı!', 'success')
+
+    referer = request.headers.get("Referer")
+    if referer and "target/" in referer:
+        return redirect(url_for('admin_view_target', target_id=target_id))
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin')

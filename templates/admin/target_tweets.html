@@ -49,7 +49,10 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefi taramak istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-warning btn-sm">Şimdi Tara</button>
+                        </form>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm" onclick="copySelected()">Seçilenleri Kopyala</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
@@ -115,14 +118,29 @@
                 return;
             }
 
-            const links = Array.from(checkboxes).map(cb => cb.value).join('\n');
+            // Collect links. Since the UI shows newest first, we reverse them
+            // so that the copied text is ordered from oldest to newest.
+            const linksArray = Array.from(checkboxes).map(cb => cb.value);
+            linksArray.reverse();
+            const linksText = linksArray.join('\n');
 
-            navigator.clipboard.writeText(links).then(function() {
-                alert(checkboxes.length + " link kopyalandı!");
-            }, function(err) {
+            // Fallback for non-HTTPS copy to clipboard
+            const textarea = document.createElement("textarea");
+            textarea.value = linksText;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                alert(checkboxes.length + " link eskiden yeniye doğru kopyalandı!");
+            } catch (err) {
                 console.error('Kopyalama hatası: ', err);
                 alert("Kopyalama başarısız oldu.");
-            });
+            }
+
+            document.body.removeChild(textarea);
         }
     </script>
 </body>
