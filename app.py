@@ -396,6 +396,46 @@ def admin_delete_all_target_tweets(target_id):
 
     return redirect(url_for('admin_view_target', target_id=target_id))
 
+@app.route('/admin/tweet/delete_selected', methods=['POST'])
+@admin_required
+def admin_delete_selected_tweets():
+    target_id = request.form.get('target_id')
+    tweet_ids_str = request.form.get('tweet_ids')
+
+    if not tweet_ids_str:
+        flash('Silinecek link seçilmedi.', 'warning')
+        return redirect(url_for('admin_view_target', target_id=target_id) if target_id else url_for('admin_dashboard'))
+
+    # Parse and validate the IDs
+    try:
+        tweet_ids = [int(i.strip()) for i in tweet_ids_str.split(',') if i.strip()]
+    except ValueError:
+        flash('Geçersiz veri biçimi.', 'danger')
+        return redirect(url_for('admin_view_target', target_id=target_id) if target_id else url_for('admin_dashboard'))
+
+    if not tweet_ids:
+        flash('Silinecek geçerli link bulunamadı.', 'warning')
+        return redirect(url_for('admin_view_target', target_id=target_id) if target_id else url_for('admin_dashboard'))
+
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                # Use parameter expansion for IN clause
+                format_strings = ','.join(['%s'] * len(tweet_ids))
+                cursor.execute(f"DELETE FROM tweets WHERE id IN ({format_strings})", tuple(tweet_ids))
+            conn.commit()
+            flash(f'{len(tweet_ids)} adet link başarıyla silindi.', 'success')
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    if target_id:
+        return redirect(url_for('admin_view_target', target_id=target_id))
+    return redirect(url_for('admin_dashboard'))
+
+
 @app.route('/admin/tweet/delete/<int:tweet_id>', methods=['POST'])
 @admin_required
 def admin_delete_single_tweet(tweet_id):
