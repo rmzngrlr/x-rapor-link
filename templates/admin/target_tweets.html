@@ -55,11 +55,18 @@
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm" onclick="copySelected()">Seçilenleri Kopyala</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteSelected()">Seçilenleri Sil</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
-                            <button type="submit" class="btn btn-danger btn-sm">Tümünü Sil</button>
+                            <button type="submit" class="btn btn-danger btn-sm fw-bold">Tümünü Sil</button>
                         </form>
                     </div>
                 </div>
+
+                <!-- Hidden form for deleting selected tweets -->
+                <form id="deleteSelectedForm" action="{{ url_for('admin_delete_selected_tweets') }}" method="POST" style="display: none;">
+                    <input type="hidden" name="target_id" value="{{ target.id }}">
+                    <input type="hidden" name="tweet_ids" id="deleteSelectedIds" value="">
+                </form>
 
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
@@ -75,7 +82,7 @@
                         <tbody>
                             {% for tweet in tweets %}
                             <tr>
-                                <td><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}"></td>
+                                <td><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}" data-id="{{ tweet.id }}"></td>
                                 <td>{{ tweet.tweet_date.strftime('%d-%m-%Y %H:%M') }}</td>
                                 <td>{{ tweet.username }}</td>
                                 <td><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
@@ -122,7 +129,8 @@
             // so that the copied text is ordered from oldest to newest.
             const linksArray = Array.from(checkboxes).map(cb => cb.value);
             linksArray.reverse();
-            const linksText = linksArray.join('\n');
+            // Join with two newlines to create an empty line between each link
+            const linksText = linksArray.join('\n\n');
 
             // Fallback for non-HTTPS copy to clipboard
             const textarea = document.createElement("textarea");
@@ -141,6 +149,22 @@
             }
 
             document.body.removeChild(textarea);
+        }
+
+        function deleteSelected() {
+            const checkboxes = document.querySelectorAll('.tweet-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert("Lütfen silmek için en az bir link seçin.");
+                return;
+            }
+
+            if (!confirm(`Seçili olan ${checkboxes.length} linki silmek istediğinize emin misiniz?`)) {
+                return;
+            }
+
+            const idsArray = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+            document.getElementById('deleteSelectedIds').value = idsArray.join(',');
+            document.getElementById('deleteSelectedForm').submit();
         }
     </script>
 </body>
