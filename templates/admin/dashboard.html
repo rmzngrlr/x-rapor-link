@@ -109,6 +109,9 @@
                                 </td>
                                 <td>{{ target.tweet_count }}</td>
                                 <td class="text-end">
+                                    <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Sadece bu hedefi taramak istediğinize emin misiniz?');">
+                                        <button type="submit" class="btn btn-warning btn-sm">Bunu Tara</button>
+                                    </form>
                                     <a href="{{ url_for('admin_view_target', target_id=target.id) }}" class="btn btn-primary btn-sm">Görüntüle</a>
                                     <form action="{{ url_for('admin_delete_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefi ve toplanan tüm tweetlerini silmek istediğinize emin misiniz?');">
                                         <button type="submit" class="btn btn-danger btn-sm">Sil</button>
