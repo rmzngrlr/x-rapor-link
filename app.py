@@ -11,6 +11,8 @@ import logging
 from datetime import datetime
 import x_scraper
 from x_scraper import run_process, CONFIG_FILE, request_stop
+from db import init_db, get_db_connection
+from werkzeug.security import check_password_hash
 
 # Werkzeug loglarını filtrele (Sadece hataları göster, GET/POST isteklerini gizle)
 log = logging.getLogger('werkzeug')
@@ -42,6 +44,24 @@ def log_debug(message):
 
 # Initial load of debug config
 load_debug_config()
+
+# Initialize Database
+init_db()
+
+# Scheduler Setup
+from apscheduler.schedulers.background import BackgroundScheduler
+from tasks import run_incremental_scraping
+import atexit
+
+# Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
+if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+    scheduler = BackgroundScheduler(daemon=True)
+    # Her gece saat 03:00'da çalışacak görev
+    scheduler.add_job(run_incremental_scraping, 'cron', hour=3, minute=0)
+    scheduler.start()
+    log_debug("Zamanlanmış görevler (Scheduler) başlatıldı. (Her gece 03:00)")
+    # Uygulama kapandığında scheduler'ı durdur
+    atexit.register(lambda: scheduler.shutdown(wait=False))
 
 # Global storage
 JOBS = {}
@@ -149,6 +169,156 @@ def worker_loop():
 # Start worker thread
 t = threading.Thread(target=worker_loop, daemon=True)
 t.start()
+
+from functools import wraps
+from flask import session
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            flash('Bu sayfaya erişmek için giriş yapmalısınız.', 'danger')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- ADMIN ROUTES ---
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT * FROM admin_users WHERE username = %s", (username,))
+                    user = cursor.fetchone()
+
+                    if user and check_password_hash(user['password_hash'], password):
+                        session['admin_logged_in'] = True
+                        session['admin_username'] = user['username']
+                        return redirect(url_for('admin_dashboard'))
+                    else:
+                        flash('Hatalı kullanıcı adı veya şifre.', 'danger')
+            finally:
+                conn.close()
+        else:
+            flash('Veritabanı bağlantı hatası.', 'danger')
+
+    return render_template('admin/login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    session.pop('admin_username', None)
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    targets = []
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                # Get targets and their tweet counts
+                cursor.execute("""
+                    SELECT t.id, t.target_name, t.target_type, COUNT(tw.id) as tweet_count
+                    FROM targets t
+                    LEFT JOIN tweets tw ON t.id = tw.target_id
+                    GROUP BY t.id
+                """)
+                targets = cursor.fetchall()
+        finally:
+            conn.close()
+
+    return render_template('admin/dashboard.html', targets=targets)
+
+@app.route('/admin/target/add', methods=['POST'])
+@admin_required
+def admin_add_target():
+    target_name = request.form.get('target_name')
+    target_type = request.form.get('target_type')
+
+    if target_name and target_type in ['user', 'list']:
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("INSERT INTO targets (target_name, target_type) VALUES (%s, %s)", (target_name, target_type))
+                conn.commit()
+                flash('Hedef başarıyla eklendi.', 'success')
+            except Exception as e:
+                flash(f'Hata oluştu: {e}', 'danger')
+            finally:
+                conn.close()
+    else:
+        flash('Geçersiz veri.', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/target/delete/<int:target_id>', methods=['POST'])
+@admin_required
+def admin_delete_target(target_id):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM targets WHERE id = %s", (target_id,))
+            conn.commit()
+            flash('Hedef ve ona bağlı tweetler silindi.', 'success')
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/target/<int:target_id>')
+@admin_required
+def admin_view_target(target_id):
+    target = None
+    tweets = []
+
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM targets WHERE id = %s", (target_id,))
+                target = cursor.fetchone()
+
+                if target:
+                    cursor.execute("SELECT * FROM tweets WHERE target_id = %s ORDER BY tweet_date DESC", (target_id,))
+                    tweets = cursor.fetchall()
+        finally:
+            conn.close()
+
+    if not target:
+        flash('Hedef bulunamadı.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('admin/target_tweets.html', target=target, tweets=tweets)
+
+@app.route('/admin/target/<int:target_id>/delete_tweets', methods=['POST'])
+@admin_required
+def admin_delete_all_target_tweets(target_id):
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM tweets WHERE target_id = %s", (target_id,))
+            conn.commit()
+            flash('Hedefin tüm tweetleri başarıyla silindi.', 'success')
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    return redirect(url_for('admin_view_target', target_id=target_id))
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
