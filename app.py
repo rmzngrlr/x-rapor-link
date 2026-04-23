@@ -12,7 +12,7 @@ from datetime import datetime
 import x_scraper
 from x_scraper import run_process, CONFIG_FILE, request_stop
 from db import init_db, get_db_connection
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # Werkzeug loglarını filtrele (Sadece hataları göster, GET/POST isteklerini gizle)
 log = logging.getLogger('werkzeug')
@@ -56,10 +56,10 @@ import atexit
 # Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
     scheduler = BackgroundScheduler(daemon=True)
-    # Her gece saat 03:00'da çalışacak görev
-    scheduler.add_job(run_incremental_scraping, 'cron', hour=3, minute=0)
+    # Her 6 saatte bir (00:00, 06:00, 12:00, 18:00) çalışacak görev
+    scheduler.add_job(run_incremental_scraping, 'cron', hour='0,6,12,18', minute=0)
     scheduler.start()
-    log_debug("Zamanlanmış görevler (Scheduler) başlatıldı. (Her gece 03:00)")
+    log_debug("Zamanlanmış görevler (Scheduler) başlatıldı. (Her gün 00:00, 06:00, 12:00, 18:00)")
     # Uygulama kapandığında scheduler'ı durdur
     atexit.register(lambda: scheduler.shutdown(wait=False))
 
@@ -215,6 +215,50 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     session.pop('admin_username', None)
     return redirect(url_for('admin_login'))
+
+@app.route('/admin/change_password', methods=['POST'])
+@admin_required
+def admin_change_password():
+    new_password = request.form.get('new_password')
+    if not new_password or len(new_password) < 4:
+        flash('Şifre en az 4 karakter olmalıdır.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    username = session.get('admin_username')
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                new_hash = generate_password_hash(new_password)
+                cursor.execute("UPDATE admin_users SET password_hash = %s WHERE username = %s", (new_hash, username))
+            conn.commit()
+            flash('Şifreniz başarıyla değiştirildi.', 'success')
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    return redirect(url_for('admin_dashboard'))
+
+# Concurrency lock for manual triggers
+MANUAL_SCRAPE_LOCK = threading.Lock()
+
+@app.route('/admin/trigger_scrape', methods=['POST'])
+@admin_required
+def admin_trigger_scrape():
+    if MANUAL_SCRAPE_LOCK.locked():
+        flash('Şu anda arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
+        return redirect(url_for('admin_dashboard'))
+
+    def locked_scrape():
+        with MANUAL_SCRAPE_LOCK:
+            run_incremental_scraping()
+
+    # Run the scraping task in a separate background thread so it doesn't block the UI
+    scrape_thread = threading.Thread(target=locked_scrape, daemon=True)
+    scrape_thread.start()
+    flash('Arka planda tarama işlemi başlatıldı! Bu işlem hedeflerin sayısına göre biraz zaman alabilir.', 'success')
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin')
 @admin_required

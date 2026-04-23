@@ -94,8 +94,16 @@ def run_incremental_scraping():
                         link = item['Link']
                         username = item.get('Username', '')
 
+                        # Handle potential string dates from scraper
+                        if isinstance(tweet_date, str):
+                            try:
+                                tweet_date = datetime.strptime(tweet_date, "%Y-%m-%d %H:%M:%S")
+                            except ValueError:
+                                # Fallback if parsing fails
+                                pass
+
                         # Ensure it's STRICTLY newer than last_tweet_date if we had one
-                        if last_tweet_date and tweet_date <= last_tweet_date:
+                        if last_tweet_date and isinstance(tweet_date, datetime) and tweet_date <= last_tweet_date:
                             continue
 
                         # Insert ignoring duplicates (thanks to UNIQUE constraint on target_id, link)

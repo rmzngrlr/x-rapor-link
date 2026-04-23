@@ -12,21 +12,6 @@ def get_db_connection():
         config = json.load(f)
 
     try:
-        # First connect without db to create it if not exists
-        conn = pymysql.connect(
-            host=config.get('mysql_host', 'localhost'),
-            port=config.get('mysql_port', 3306),
-            user=config.get('mysql_user', 'root'),
-            password=config.get('mysql_password', ''),
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        with conn.cursor() as cursor:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{config.get('mysql_database', 'xscraper_db')}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-        conn.commit()
-        conn.close()
-
-        # Now connect with db
         conn = pymysql.connect(
             host=config.get('mysql_host', 'localhost'),
             port=config.get('mysql_port', 3306),
@@ -42,6 +27,29 @@ def get_db_connection():
         return None
 
 def init_db():
+    if not os.path.exists(CONFIG_FILE):
+        return None
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    # First connect without DB to create it if not exists
+    try:
+        conn_init = pymysql.connect(
+            host=config.get('mysql_host', 'localhost'),
+            port=config.get('mysql_port', 3306),
+            user=config.get('mysql_user', 'root'),
+            password=config.get('mysql_password', ''),
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        with conn_init.cursor() as cursor:
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{config.get('mysql_database', 'xscraper_db')}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+        conn_init.commit()
+        conn_init.close()
+    except Exception as e:
+        print(f"Failed to create database during init_db: {e}")
+        return
+
     conn = get_db_connection()
     if not conn:
         print("Skipping DB initialization (cannot connect).")
