@@ -57,6 +57,15 @@ def init_db():
 
     try:
         with conn.cursor() as cursor:
+            # Table: settings
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    start_hour INT NOT NULL DEFAULT 0,
+                    interval_hours INT NOT NULL DEFAULT 6
+                )
+            """)
+
             # Table: admin_users
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS admin_users (
@@ -107,6 +116,13 @@ def init_db():
                 password_hash = generate_password_hash(default_password)
                 cursor.execute("INSERT INTO admin_users (username, password_hash) VALUES (%s, %s)", (default_username, password_hash))
                 print("Default admin user created (admin/admin).")
+
+            # Insert default settings if table is empty
+            cursor.execute("SELECT COUNT(*) as count FROM settings")
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                cursor.execute("INSERT INTO settings (start_hour, interval_hours) VALUES (0, 6)")
+                print("Default settings initialized.")
 
         conn.commit()
         print("Database initialized successfully.")
