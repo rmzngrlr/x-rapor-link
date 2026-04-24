@@ -16,14 +16,48 @@
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">Yönetim Paneli</a>
             <div class="d-flex align-items-center">
-                <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 me-3" onsubmit="return confirm('Şimdi tarama başlatmak istediğinize emin misiniz? Arka planda çalışacaktır.');">
-                    <button type="submit" class="btn btn-warning btn-sm">Şimdi Tarama Başlat</button>
+                <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 me-3" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
+                    <button type="submit" class="btn btn-warning btn-sm">Tümünü Tara</button>
                 </form>
+                <button type="button" class="btn btn-outline-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
                 <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Şifre Değiştir</button>
                 <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Çıkış Yap</a>
             </div>
         </div>
     </nav>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Zamanlama Ayarları</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <form action="{{ url_for('admin_update_settings') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">İlk Başlama Saati (0-23)</label>
+                            <input type="number" name="start_hour" class="form-control" value="{{ settings.start_hour }}" min="0" max="23" required>
+                            <small class="text-muted">Günün hangi saatinde tarama döngüsünün başlayacağını seçin.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tarama Sıklığı (Saat)</label>
+                            <input type="number" name="interval_hours" class="form-control" value="{{ settings.interval_hours }}" min="1" max="24" required>
+                            <small class="text-muted">İlk taramadan sonra kaç saatte bir tekrar edileceğini seçin.</small>
+                        </div>
+                        <div class="alert alert-info py-2 small">
+                            <em>Örn: Başlangıç 0, Sıklık 6 yaparsanız her gün 00:00, 06:00, 12:00, 18:00 saatlerinde çalışır.</em>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-primary">Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Change Password Modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">

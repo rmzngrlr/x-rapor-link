@@ -66,10 +66,51 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
         else:
             log_debug("Zamanlanmış tarama atlandı, çünkü manuel bir tarama devam ediyor.")
 
-    # Her 6 saatte bir (00:00, 06:00, 12:00, 18:00) çalışacak görev
-    scheduler.add_job(locked_scheduled_scrape, 'cron', hour='0,6,12,18', minute=0)
+    def generate_cron_hours(start_hour, interval_hours):
+        hours = []
+        current_hour = start_hour
+        for _ in range(24):
+            if current_hour not in hours:
+                hours.append(current_hour)
+            current_hour = (current_hour + interval_hours) % 24
+            if current_hour == start_hour:
+                break
+        return ','.join(map(str, sorted(hours)))
+
+    def apply_scheduler_settings():
+        conn = get_db_connection()
+        start_hour = 0
+        interval_hours = 6
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT start_hour, interval_hours FROM settings ORDER BY id DESC LIMIT 1")
+                    settings = cursor.fetchone()
+                    if settings:
+                        start_hour = settings['start_hour']
+                        interval_hours = settings['interval_hours']
+            except Exception as e:
+                print(f"Failed to load settings: {e}")
+            finally:
+                conn.close()
+
+        cron_hours = generate_cron_hours(start_hour, interval_hours)
+
+        # Remove existing job if any
+        if scheduler.get_job('incremental_scrape_job'):
+            scheduler.remove_job('incremental_scrape_job')
+
+        # Add new job
+        scheduler.add_job(locked_scheduled_scrape, 'cron', hour=cron_hours, minute=0, id='incremental_scrape_job')
+        print(f"Scheduler updated: running at hours {cron_hours} (start: {start_hour}:00, interval: {interval_hours}h)", flush=True)
+
+    # Initial apply
+    apply_scheduler_settings()
     scheduler.start()
-    log_debug("Zamanlanmış görevler (Scheduler) başlatıldı. (Her gün 00:00, 06:00, 12:00, 18:00)")
+
+    # Store globally to allow updating from routes
+    app.apply_scheduler_settings = apply_scheduler_settings
+
     # Uygulama kapandığında scheduler'ı durdur
     atexit.register(lambda: scheduler.shutdown(wait=False))
 
@@ -293,14 +334,59 @@ def admin_trigger_scrape_target(target_id):
         return redirect(url_for('admin_view_target', target_id=target_id))
     return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin')
+@app.route('/admin/update_settings', methods=['POST'])
 @admin_required
-def admin_dashboard():
-    targets = []
+def admin_update_settings():
+    start_hour = request.form.get('start_hour', type=int, default=0)
+    interval_hours = request.form.get('interval_hours', type=int, default=6)
+
+    if start_hour < 0 or start_hour > 23:
+        flash('Başlangıç saati 0-23 arasında olmalıdır.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    if interval_hours < 1 or interval_hours > 24:
+        flash('Tarama sıklığı 1-24 saat arasında olmalıdır.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) as count FROM settings")
+                result = cursor.fetchone()
+                if result['count'] == 0:
+                    cursor.execute("INSERT INTO settings (start_hour, interval_hours) VALUES (%s, %s)", (start_hour, interval_hours))
+                else:
+                    cursor.execute("UPDATE settings SET start_hour = %s, interval_hours = %s", (start_hour, interval_hours))
+            conn.commit()
+            flash('Zamanlama ayarları başarıyla güncellendi.', 'success')
+
+            # Update scheduler dynamically
+            if hasattr(app, 'apply_scheduler_settings'):
+                app.apply_scheduler_settings()
+
+        except Exception as e:
+            flash(f'Hata oluştu: {e}', 'danger')
+        finally:
+            conn.close()
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    targets = []
+    settings = {'start_hour': 0, 'interval_hours': 6}
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                # Get settings
+                cursor.execute("SELECT start_hour, interval_hours FROM settings ORDER BY id DESC LIMIT 1")
+                db_settings = cursor.fetchone()
+                if db_settings:
+                    settings = db_settings
+
                 # Get targets and their tweet counts
                 cursor.execute("""
                     SELECT t.id, t.target_name, t.target_type, t.last_scraped_at, COUNT(tw.id) as tweet_count
@@ -312,7 +398,7 @@ def admin_dashboard():
         finally:
             conn.close()
 
-    return render_template('admin/dashboard.html', targets=targets)
+    return render_template('admin/dashboard.html', targets=targets, settings=settings)
 
 @app.route('/admin/target/add', methods=['POST'])
 @admin_required
