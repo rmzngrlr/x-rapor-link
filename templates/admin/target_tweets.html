@@ -10,15 +10,24 @@
         .dashboard-container { max-width: 1000px; margin: 30px auto; }
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 10px; }
         .tweet-link { word-break: break-all; white-space: pre-wrap; }
+        @media (max-width: 768px) {
+            .table-responsive { font-size: 0.85rem; }
+            .table td, .table th { padding: 0.5rem; }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">Yönetim Paneli</a>
-            <div class="d-flex">
-                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light btn-sm me-2">Geri Dön</a>
-                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Çıkış Yap</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar" aria-controls="adminNavbar" aria-expanded="false" aria-label="Menüyü Göster">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <div class="d-flex flex-column flex-lg-row ms-auto mt-3 mt-lg-0 gap-2">
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light btn-sm w-100 w-lg-auto text-center">Geri Dön</a>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm w-100 w-lg-auto text-center">Çıkış Yap</a>
+                </div>
             </div>
         </div>
     </nav>
@@ -34,7 +43,7 @@
 
         <div class="card">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
                     <div>
                         <h5 class="card-title m-0 d-inline-block">
                             {{ target.target_name }} ({{ 'Kullanıcı' if target.target_type == 'user' else 'Liste' }}) Tweetleri
@@ -49,15 +58,15 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
                         <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefi taramak istediğinize emin misiniz?');">
-                            <button type="submit" class="btn btn-warning btn-sm">Şimdi Tara</button>
+                            <button type="submit" class="btn btn-warning btn-sm flex-fill">Şimdi Tara</button>
                         </form>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">Tümünü Seç</button>
-                        <button type="button" class="btn btn-success btn-sm" onclick="copySelected()">Seçilenleri Kopyala</button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteSelected()">Seçilenleri Sil</button>
-                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
-                            <button type="submit" class="btn btn-danger btn-sm fw-bold">Tümünü Sil</button>
+                        <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
+                        <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
+                        <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
+                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-danger btn-sm fw-bold flex-fill">Tümünü Sil</button>
                         </form>
                     </div>
                 </div>
@@ -68,26 +77,26 @@
                     <input type="hidden" name="tweet_ids" id="deleteSelectedIds" value="">
                 </form>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                <div class="table-responsive border rounded">
+                    <table class="table table-hover align-middle mb-0 text-nowrap">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
+                                <th style="width: 40px;" class="text-center"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
                                 <th>Tarih</th>
                                 <th>Kullanıcı</th>
-                                <th>Link</th>
+                                <th class="w-100 text-wrap">Link</th>
                                 <th class="text-end">İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for tweet in tweets %}
                             <tr>
-                                <td><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}" data-id="{{ tweet.id }}"></td>
+                                <td class="text-center"><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}" data-id="{{ tweet.id }}"></td>
                                 <td>{{ tweet.tweet_date.strftime('%d-%m-%Y %H:%M') }}</td>
                                 <td>{{ tweet.username }}</td>
-                                <td><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
+                                <td class="text-wrap"><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
                                 <td class="text-end">
-                                    <form action="{{ url_for('admin_delete_single_tweet', tweet_id=tweet.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu linki silmek istediğinize emin misiniz?');">
+                                    <form action="{{ url_for('admin_delete_single_tweet', tweet_id=tweet.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu linki silmek istediğinize emin misiniz?');">
                                         <input type="hidden" name="target_id" value="{{ target.id }}">
                                         <button type="submit" class="btn btn-outline-danger btn-sm">Sil</button>
                                     </form>

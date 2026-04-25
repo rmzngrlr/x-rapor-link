@@ -15,13 +15,18 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">Yönetim Paneli</a>
-            <div class="d-flex align-items-center">
-                <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 me-3" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
-                    <button type="submit" class="btn btn-warning btn-sm">Tümünü Tara</button>
-                </form>
-                <button type="button" class="btn btn-outline-info btn-sm me-2" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
-                <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Şifre Değiştir</button>
-                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Çıkış Yap</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar" aria-controls="adminNavbar" aria-expanded="false" aria-label="Menüyü Göster">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
+                    <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 w-100 w-lg-auto" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
+                        <button type="submit" class="btn btn-warning btn-sm w-100">Tümünü Tara</button>
+                    </form>
+                    <button type="button" class="btn btn-outline-info btn-sm w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
+                    <button type="button" class="btn btn-outline-light btn-sm w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Şifre Değiştir</button>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm w-100 w-lg-auto text-center">Çıkış Yap</a>
+                </div>
             </div>
         </div>
     </nav>
