@@ -181,8 +181,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             fpInstance = flatpickr("#dateRangeBtn", {
                 mode: "range",
+                enableTime: true,
+                time_24hr: true,
                 locale: "tr",
-                dateFormat: "Y-m-d",
+                dateFormat: "Y-m-d H:i",
                 showMonths: 1,
                 onClose: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length > 0) {
@@ -200,17 +202,17 @@
 
             let start, end;
 
-            // If user clicked only one date, we use it for both start and end
+            // Flatpickr already provides exact Date objects including the chosen time
             if (selectedDates.length === 1) {
+                // If they only picked one date/time, treat it as an exact boundary from that minute until the end of that specific minute.
                 start = new Date(selectedDates[0]);
-                start.setHours(0, 0, 0, 0);
                 end = new Date(selectedDates[0]);
-                end.setHours(23, 59, 59, 999);
+                end.setSeconds(59, 999);
             } else if (selectedDates.length === 2) {
                 start = new Date(selectedDates[0]);
-                start.setHours(0, 0, 0, 0);
                 end = new Date(selectedDates[1]);
-                end.setHours(23, 59, 59, 999);
+                // Flatpickr sets seconds to 0. Make the end time inclusive to the minute end.
+                end.setSeconds(59, 999);
             }
 
             // Uncheck all checkboxes first
