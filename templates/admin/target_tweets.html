@@ -65,34 +65,11 @@
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
-                        <button type="button" class="btn btn-info btn-sm flex-fill text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Kopyala</button>
+                        <button type="button" id="dateRangeBtn" class="btn btn-info btn-sm flex-fill text-white">Tarihe Göre Kopyala</button>
                         <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
                             <button type="submit" class="btn btn-danger btn-sm fw-bold flex-fill">Tümünü Sil</button>
                         </form>
-                    </div>
-                </div>
-
-                <!-- Date Filter Modal -->
-                <div class="modal fade" id="dateFilterModal" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Tarih Aralığı Seçin</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p class="text-muted small">Aşağıdaki takvimden tarih aralığını (örneğin: 23 Nisan - 25 Nisan) seçin. Seçtiğiniz tarihler arasındaki tüm linkler eskiden yeniye sıralı olarak kopyalanacaktır.</p>
-                                <div class="mb-3">
-                                    <label class="form-label">Tarih Aralığı Seçin</label>
-                                    <input type="text" id="dateRangePicker" class="form-control bg-white" placeholder="Başlangıç ve Bitiş tarihini seçin..." readonly>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                                <button type="button" class="btn btn-primary" onclick="copyByDateRange()">Kopyala</button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -200,21 +177,24 @@
 
         let fpInstance = null;
 
-        // Initialize flatpickr when DOM is loaded
+        // Initialize flatpickr when DOM is loaded directly on the button
         document.addEventListener('DOMContentLoaded', function() {
-            fpInstance = flatpickr("#dateRangePicker", {
+            fpInstance = flatpickr("#dateRangeBtn", {
                 mode: "range",
                 locale: "tr",
                 dateFormat: "Y-m-d",
-                showMonths: 1
+                showMonths: 1,
+                onClose: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0) {
+                        copyByDateRange(selectedDates);
+                        instance.clear();
+                    }
+                }
             });
         });
 
-        function copyByDateRange() {
-            const selectedDates = fpInstance.selectedDates;
-
+        function copyByDateRange(selectedDates) {
             if (!selectedDates || selectedDates.length === 0) {
-                alert("Lütfen takvimden bir tarih veya tarih aralığı seçin.");
                 return;
             }
 
@@ -258,7 +238,6 @@
                         const rowDate = new Date(year, month, day, hour, minute);
 
                         if (rowDate >= start && rowDate <= end) {
-                            // Link is in cell 3 (index 3) but checkbox is in cell 0
                             const checkbox = row.querySelector('.tweet-checkbox');
                             if (checkbox) {
                                 matchedLinks.push(checkbox.value);
@@ -273,17 +252,8 @@
                 return;
             }
 
-            // Close the modal first to prevent Bootstrap focus trap from blocking the copy command
-            const modalEl = document.getElementById('dateFilterModal');
-            const modalInstance = bootstrap.Modal.getInstance(modalEl);
-            if (modalInstance) {
-                modalInstance.hide();
-            }
-
-            // Execute copy after modal starts hiding
-            setTimeout(() => {
-                executeCopy(matchedLinks);
-            }, 300);
+            // Since there is no longer a Bootstrap modal trapping focus, we can call this immediately
+            executeCopy(matchedLinks);
         }
 
         function deleteSelected() {
