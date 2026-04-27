@@ -65,7 +65,7 @@
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
-                        <button type="button" id="dateRangeBtn" class="btn btn-info btn-sm flex-fill text-white">Tarihe Göre Kopyala</button>
+                        <button type="button" id="dateRangeBtn" class="btn btn-info btn-sm flex-fill text-white">Tarihe Göre Seç</button>
                         <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
                             <button type="submit" class="btn btn-danger btn-sm fw-bold flex-fill">Tümünü Sil</button>
@@ -186,14 +186,14 @@
                 showMonths: 1,
                 onClose: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length > 0) {
-                        copyByDateRange(selectedDates);
+                        selectByDateRange(selectedDates);
                         instance.clear();
                     }
                 }
             });
         });
 
-        function copyByDateRange(selectedDates) {
+        function selectByDateRange(selectedDates) {
             if (!selectedDates || selectedDates.length === 0) {
                 return;
             }
@@ -213,8 +213,14 @@
                 end.setHours(23, 59, 59, 999);
             }
 
+            // Uncheck all checkboxes first
+            const allCheckboxes = document.querySelectorAll('.tweet-checkbox');
+            allCheckboxes.forEach(cb => cb.checked = false);
+            const masterCheckbox = document.getElementById('selectAllCheckbox');
+            if (masterCheckbox) masterCheckbox.checked = false;
+
             const rows = document.querySelectorAll('tbody tr');
-            const matchedLinks = [];
+            let matchCount = 0;
 
             rows.forEach(row => {
                 const dateCell = row.cells[1];
@@ -240,20 +246,19 @@
                         if (rowDate >= start && rowDate <= end) {
                             const checkbox = row.querySelector('.tweet-checkbox');
                             if (checkbox) {
-                                matchedLinks.push(checkbox.value);
+                                checkbox.checked = true;
+                                matchCount++;
                             }
                         }
                     }
                 }
             });
 
-            if (matchedLinks.length === 0) {
+            if (matchCount === 0) {
                 alert("Seçilen tarih aralığında link bulunamadı.");
-                return;
+            } else {
+                alert(`Seçilen tarih aralığına ait ${matchCount} link işaretlendi. Artık kopyalayabilir veya silebilirsiniz.`);
             }
-
-            // Since there is no longer a Bootstrap modal trapping focus, we can call this immediately
-            executeCopy(matchedLinks);
         }
 
         function deleteSelected() {
