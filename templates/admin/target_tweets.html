@@ -65,11 +65,49 @@
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
-                        <button type="button" id="dateRangeBtn" class="btn btn-info btn-sm flex-fill text-white">Tarihe Göre Seç</button>
+                        <button type="button" class="btn btn-info btn-sm flex-fill text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Seç</button>
                         <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
                             <button type="submit" class="btn btn-danger btn-sm fw-bold flex-fill">Tümünü Sil</button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Date/Time Filter Modal -->
+                <div class="modal fade" id="dateFilterModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Tarih ve Saat Aralığı Seçin</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Hızlı Seçim</label>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="selectByQuickRange(24)">Son 24 Saat</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="selectByQuickRange(48)">Son 48 Saat</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="selectByQuickRange(168)">Son 1 Hafta</button>
+                                    </div>
+                                </div>
+
+                                <hr>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Manuel Tarih/Saat Seçimi</label>
+                                    <p class="text-muted small mb-2">Başlangıç ve bitiş için tarih ve saati ayrı ayrı belirleyebilirsiniz.</p>
+                                    <label class="form-label">Başlangıç</label>
+                                    <input type="text" id="filterStartDate" class="form-control bg-white mb-3" placeholder="Seçiniz..." readonly>
+
+                                    <label class="form-label">Bitiş</label>
+                                    <input type="text" id="filterEndDate" class="form-control bg-white" placeholder="Seçiniz..." readonly>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="selectByDateRange()">Seç</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -175,46 +213,21 @@
             executeCopy(linksArray);
         }
 
-        let fpInstance = null;
+        let fpStart = null;
+        let fpEnd = null;
 
-        // Initialize flatpickr when DOM is loaded directly on the button
         document.addEventListener('DOMContentLoaded', function() {
-            fpInstance = flatpickr("#dateRangeBtn", {
-                mode: "range",
+            const fpConfig = {
                 enableTime: true,
                 time_24hr: true,
                 locale: "tr",
                 dateFormat: "Y-m-d H:i",
-                showMonths: 1,
-                onClose: function(selectedDates, dateStr, instance) {
-                    if (selectedDates.length > 0) {
-                        selectByDateRange(selectedDates);
-                        instance.clear();
-                    }
-                }
-            });
+            };
+            fpStart = flatpickr("#filterStartDate", fpConfig);
+            fpEnd = flatpickr("#filterEndDate", fpConfig);
         });
 
-        function selectByDateRange(selectedDates) {
-            if (!selectedDates || selectedDates.length === 0) {
-                return;
-            }
-
-            let start, end;
-
-            // Flatpickr already provides exact Date objects including the chosen time
-            if (selectedDates.length === 1) {
-                // If they only picked one date/time, treat it as an exact boundary from that minute until the end of that specific minute.
-                start = new Date(selectedDates[0]);
-                end = new Date(selectedDates[0]);
-                end.setSeconds(59, 999);
-            } else if (selectedDates.length === 2) {
-                start = new Date(selectedDates[0]);
-                end = new Date(selectedDates[1]);
-                // Flatpickr sets seconds to 0. Make the end time inclusive to the minute end.
-                end.setSeconds(59, 999);
-            }
-
+        function applySelectionFilter(start, end) {
             // Uncheck all checkboxes first
             const allCheckboxes = document.querySelectorAll('.tweet-checkbox');
             allCheckboxes.forEach(cb => cb.checked = false);
@@ -261,6 +274,41 @@
             } else {
                 alert(`Seçilen tarih aralığına ait ${matchCount} link işaretlendi. Artık kopyalayabilir veya silebilirsiniz.`);
             }
+
+            const modalEl = document.getElementById('dateFilterModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+        }
+
+        function selectByQuickRange(hours) {
+            const end = new Date();
+            const start = new Date(end.getTime() - (hours * 60 * 60 * 1000));
+
+            // Update flatpickr inputs visually for feedback
+            if (fpStart && fpEnd) {
+                fpStart.setDate(start);
+                fpEnd.setDate(end);
+            }
+
+            applySelectionFilter(start, end);
+        }
+
+        function selectByDateRange() {
+            const startDates = fpStart.selectedDates;
+            const endDates = fpEnd.selectedDates;
+
+            if (!startDates || startDates.length === 0 || !endDates || endDates.length === 0) {
+                alert("Lütfen hem başlangıç hem de bitiş tarihi ve saatini seçin.");
+                return;
+            }
+
+            let start = new Date(startDates[0]);
+            let end = new Date(endDates[0]);
+            end.setSeconds(59, 999); // inclusive of the end minute
+
+            applySelectionFilter(start, end);
         }
 
         function deleteSelected() {
