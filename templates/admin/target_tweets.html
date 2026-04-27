@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ target.target_name }} - Tweetler</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         body { background-color: #f8f9fa; overscroll-behavior: none; overflow-x: hidden; }
         .dashboard-container { max-width: 1000px; margin: 30px auto; }
@@ -81,14 +82,10 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
                             </div>
                             <div class="modal-body">
-                                <p class="text-muted small">Seçtiğiniz tarihler (başlangıç ve bitiş dahil) arasındaki tüm linkler eskiden yeniye sıralı olarak kopyalanacaktır.</p>
+                                <p class="text-muted small">Aşağıdaki takvimden tarih aralığını (örneğin: 23 Nisan - 25 Nisan) seçin. Seçtiğiniz tarihler arasındaki tüm linkler eskiden yeniye sıralı olarak kopyalanacaktır.</p>
                                 <div class="mb-3">
-                                    <label class="form-label">Başlangıç Tarihi</label>
-                                    <input type="date" id="filterStartDate" class="form-control">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Bitiş Tarihi</label>
-                                    <input type="date" id="filterEndDate" class="form-control">
+                                    <label class="form-label">Tarih Aralığı Seçin</label>
+                                    <input type="text" id="dateRangePicker" class="form-control bg-white" placeholder="Başlangıç ve Bitiş tarihini seçin..." readonly>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -201,19 +198,40 @@
             executeCopy(linksArray);
         }
 
-        function copyByDateRange() {
-            const startDateInput = document.getElementById('filterStartDate').value;
-            const endDateInput = document.getElementById('filterEndDate').value;
+        let fpInstance = null;
 
-            if (!startDateInput || !endDateInput) {
-                alert("Lütfen hem başlangıç hem de bitiş tarihi seçin.");
+        // Initialize flatpickr when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            fpInstance = flatpickr("#dateRangePicker", {
+                mode: "range",
+                locale: "tr",
+                dateFormat: "Y-m-d",
+                showMonths: 1
+            });
+        });
+
+        function copyByDateRange() {
+            const selectedDates = fpInstance.selectedDates;
+
+            if (!selectedDates || selectedDates.length === 0) {
+                alert("Lütfen takvimden bir tarih veya tarih aralığı seçin.");
                 return;
             }
 
-            // Convert input YYYY-MM-DD to comparable Date objects
-            // Use 00:00:00 for start, 23:59:59 for end to make it inclusive
-            const start = new Date(startDateInput + 'T00:00:00');
-            const end = new Date(endDateInput + 'T23:59:59');
+            let start, end;
+
+            // If user clicked only one date, we use it for both start and end
+            if (selectedDates.length === 1) {
+                start = new Date(selectedDates[0]);
+                start.setHours(0, 0, 0, 0);
+                end = new Date(selectedDates[0]);
+                end.setHours(23, 59, 59, 999);
+            } else if (selectedDates.length === 2) {
+                start = new Date(selectedDates[0]);
+                start.setHours(0, 0, 0, 0);
+                end = new Date(selectedDates[1]);
+                end.setHours(23, 59, 59, 999);
+            }
 
             const rows = document.querySelectorAll('tbody tr');
             const matchedLinks = [];
@@ -285,5 +303,7 @@
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
 </body>
 </html>
