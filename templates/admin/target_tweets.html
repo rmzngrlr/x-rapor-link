@@ -156,21 +156,34 @@
         }
 
         function executeCopy(linksArray) {
+            if (!linksArray || linksArray.length === 0) return;
+
+            // Clone the array to avoid mutating original
+            const linksToCopy = [...linksArray];
             // Reverse so oldest is first
-            linksArray.reverse();
+            linksToCopy.reverse();
             // Join with two newlines to create an empty line between each link
-            const linksText = linksArray.join('\n\n');
+            const linksText = linksToCopy.join('\n\n');
 
             const textarea = document.createElement("textarea");
             textarea.value = linksText;
+            // Prevent scrolling to bottom
+            textarea.style.top = "0";
+            textarea.style.left = "0";
             textarea.style.position = "fixed";
             textarea.style.opacity = "0";
             document.body.appendChild(textarea);
+
+            textarea.focus();
             textarea.select();
 
             try {
-                document.execCommand('copy');
-                alert(linksArray.length + " link eskiden yeniye doğru kopyalandı!");
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    alert(linksToCopy.length + " link eskiden yeniye doğru kopyalandı!");
+                } else {
+                    alert("Kopyalama başarısız oldu (Tarayıcı izin vermedi).");
+                }
             } catch (err) {
                 console.error('Kopyalama hatası: ', err);
                 alert("Kopyalama başarısız oldu.");
@@ -242,14 +255,17 @@
                 return;
             }
 
-            executeCopy(matchedLinks);
-
-            // Close the modal
+            // Close the modal first to prevent Bootstrap focus trap from blocking the copy command
             const modalEl = document.getElementById('dateFilterModal');
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (modalInstance) {
                 modalInstance.hide();
             }
+
+            // Execute copy after modal starts hiding
+            setTimeout(() => {
+                executeCopy(matchedLinks);
+            }, 300);
         }
 
         function deleteSelected() {
@@ -268,5 +284,6 @@
             document.getElementById('deleteSelectedForm').submit();
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
