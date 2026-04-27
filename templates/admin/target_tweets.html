@@ -64,10 +64,38 @@
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
+                        <button type="button" class="btn btn-info btn-sm flex-fill text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Kopyala</button>
                         <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
                         <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
                             <button type="submit" class="btn btn-danger btn-sm fw-bold flex-fill">Tümünü Sil</button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Date Filter Modal -->
+                <div class="modal fade" id="dateFilterModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Tarih Aralığı Seçin</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="text-muted small">Seçtiğiniz tarihler (başlangıç ve bitiş dahil) arasındaki tüm linkler eskiden yeniye sıralı olarak kopyalanacaktır.</p>
+                                <div class="mb-3">
+                                    <label class="form-label">Başlangıç Tarihi</label>
+                                    <input type="date" id="filterStartDate" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Bitiş Tarihi</label>
+                                    <input type="date" id="filterEndDate" class="form-control">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                <button type="button" class="btn btn-primary" onclick="copyByDateRange()">Kopyala</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -127,21 +155,12 @@
             toggleSelectAll();
         }
 
-        function copySelected() {
-            const checkboxes = document.querySelectorAll('.tweet-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert("Lütfen kopyalamak için en az bir link seçin.");
-                return;
-            }
-
-            // Collect links. Since the UI shows newest first, we reverse them
-            // so that the copied text is ordered from oldest to newest.
-            const linksArray = Array.from(checkboxes).map(cb => cb.value);
+        function executeCopy(linksArray) {
+            // Reverse so oldest is first
             linksArray.reverse();
             // Join with two newlines to create an empty line between each link
             const linksText = linksArray.join('\n\n');
 
-            // Fallback for non-HTTPS copy to clipboard
             const textarea = document.createElement("textarea");
             textarea.value = linksText;
             textarea.style.position = "fixed";
@@ -151,13 +170,86 @@
 
             try {
                 document.execCommand('copy');
-                alert(checkboxes.length + " link eskiden yeniye doğru kopyalandı!");
+                alert(linksArray.length + " link eskiden yeniye doğru kopyalandı!");
             } catch (err) {
                 console.error('Kopyalama hatası: ', err);
                 alert("Kopyalama başarısız oldu.");
             }
-
             document.body.removeChild(textarea);
+        }
+
+        function copySelected() {
+            const checkboxes = document.querySelectorAll('.tweet-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert("Lütfen kopyalamak için en az bir link seçin.");
+                return;
+            }
+            const linksArray = Array.from(checkboxes).map(cb => cb.value);
+            executeCopy(linksArray);
+        }
+
+        function copyByDateRange() {
+            const startDateInput = document.getElementById('filterStartDate').value;
+            const endDateInput = document.getElementById('filterEndDate').value;
+
+            if (!startDateInput || !endDateInput) {
+                alert("Lütfen hem başlangıç hem de bitiş tarihi seçin.");
+                return;
+            }
+
+            // Convert input YYYY-MM-DD to comparable Date objects
+            // Use 00:00:00 for start, 23:59:59 for end to make it inclusive
+            const start = new Date(startDateInput + 'T00:00:00');
+            const end = new Date(endDateInput + 'T23:59:59');
+
+            const rows = document.querySelectorAll('tbody tr');
+            const matchedLinks = [];
+
+            rows.forEach(row => {
+                const dateCell = row.cells[1];
+                if (!dateCell) return;
+
+                const dateText = dateCell.textContent.trim(); // Format: DD-MM-YYYY HH:MM
+                if (dateText === "Henüz tweet toplanmamış.") return;
+
+                // Parse DD-MM-YYYY HH:MM
+                const parts = dateText.split(' ');
+                if (parts.length === 2) {
+                    const dateParts = parts[0].split('-');
+                    const timeParts = parts[1].split(':');
+                    if (dateParts.length === 3 && timeParts.length === 2) {
+                        const day = parseInt(dateParts[0], 10);
+                        const month = parseInt(dateParts[1], 10) - 1; // JS months are 0-indexed
+                        const year = parseInt(dateParts[2], 10);
+                        const hour = parseInt(timeParts[0], 10);
+                        const minute = parseInt(timeParts[1], 10);
+
+                        const rowDate = new Date(year, month, day, hour, minute);
+
+                        if (rowDate >= start && rowDate <= end) {
+                            // Link is in cell 3 (index 3) but checkbox is in cell 0
+                            const checkbox = row.querySelector('.tweet-checkbox');
+                            if (checkbox) {
+                                matchedLinks.push(checkbox.value);
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (matchedLinks.length === 0) {
+                alert("Seçilen tarih aralığında link bulunamadı.");
+                return;
+            }
+
+            executeCopy(matchedLinks);
+
+            // Close the modal
+            const modalEl = document.getElementById('dateFilterModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
         }
 
         function deleteSelected() {
