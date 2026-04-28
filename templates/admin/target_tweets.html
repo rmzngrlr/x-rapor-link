@@ -277,6 +277,20 @@
             return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
 
+        // Set default End Date to "now" when the modal is opened
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateFilterModal = document.getElementById('dateFilterModal');
+            if (dateFilterModal) {
+                dateFilterModal.addEventListener('show.bs.modal', function () {
+                    // Only auto-fill if it's currently empty, so we don't overwrite user selections unnecessarily
+                    const endInput = document.getElementById('filterEndDate');
+                    if (!endInput.value) {
+                        endInput.value = formatForDateTimeLocal(new Date());
+                    }
+                });
+            }
+        });
+
         function selectByQuickRange(hours) {
             const end = new Date();
             const start = new Date(end.getTime() - (hours * 60 * 60 * 1000));
