@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ target.target_name }} - Tweetler</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         body { background-color: #f8f9fa; overscroll-behavior: none; overflow-x: hidden; }
         .dashboard-container { max-width: 1000px; margin: 30px auto; }
@@ -97,10 +96,10 @@
                                     <label class="form-label fw-bold">Manuel Tarih/Saat Seçimi</label>
                                     <p class="text-muted small mb-2">Başlangıç ve bitiş için tarih ve saati ayrı ayrı belirleyebilirsiniz.</p>
                                     <label class="form-label">Başlangıç</label>
-                                    <input type="text" id="filterStartDate" class="form-control bg-white mb-3" placeholder="Seçiniz..." readonly>
+                                    <input type="datetime-local" id="filterStartDate" class="form-control mb-3">
 
                                     <label class="form-label">Bitiş</label>
-                                    <input type="text" id="filterEndDate" class="form-control bg-white" placeholder="Seçiniz..." readonly>
+                                    <input type="datetime-local" id="filterEndDate" class="form-control">
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -213,21 +212,6 @@
             executeCopy(linksArray);
         }
 
-        let fpStart = null;
-        let fpEnd = null;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const fpConfig = {
-                enableTime: true,
-                time_24hr: true,
-                minuteIncrement: 1,
-                locale: "tr",
-                dateFormat: "Y-m-d H:i",
-            };
-            fpStart = flatpickr("#filterStartDate", fpConfig);
-            fpEnd = flatpickr("#filterEndDate", fpConfig);
-        });
-
         function applySelectionFilter(start, end) {
             // Uncheck all checkboxes first
             const allCheckboxes = document.querySelectorAll('.tweet-checkbox');
@@ -283,30 +267,39 @@
             }
         }
 
+        // Helper to format Date objects to YYYY-MM-DDTHH:mm for datetime-local inputs
+        function formatForDateTimeLocal(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const hours = String(dateObj.getHours()).padStart(2, '0');
+            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
         function selectByQuickRange(hours) {
             const end = new Date();
             const start = new Date(end.getTime() - (hours * 60 * 60 * 1000));
 
-            // Update flatpickr inputs visually for feedback
-            if (fpStart && fpEnd) {
-                fpStart.setDate(start);
-                fpEnd.setDate(end);
-            }
+            // Update datetime-local inputs visually for feedback
+            document.getElementById('filterStartDate').value = formatForDateTimeLocal(start);
+            document.getElementById('filterEndDate').value = formatForDateTimeLocal(end);
 
             applySelectionFilter(start, end);
         }
 
         function selectByDateRange() {
-            const startDates = fpStart.selectedDates;
-            const endDates = fpEnd.selectedDates;
+            const startVal = document.getElementById('filterStartDate').value;
+            const endVal = document.getElementById('filterEndDate').value;
 
-            if (!startDates || startDates.length === 0 || !endDates || endDates.length === 0) {
+            if (!startVal || !endVal) {
                 alert("Lütfen hem başlangıç hem de bitiş tarihi ve saatini seçin.");
                 return;
             }
 
-            let start = new Date(startDates[0]);
-            let end = new Date(endDates[0]);
+            // datetime-local values are natively parseable by the Date constructor
+            let start = new Date(startVal);
+            let end = new Date(endVal);
             end.setSeconds(59, 999); // inclusive of the end minute
 
             applySelectionFilter(start, end);
@@ -329,7 +322,5 @@
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
 </body>
 </html>
