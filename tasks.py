@@ -46,6 +46,7 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
         return
 
     targets = []
+    current_time = datetime.now()
     try:
         with conn.cursor() as cursor:
             if specific_target_id:
@@ -54,13 +55,12 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                 # Manuel tetiklemelerde tüm hedefleri zorla tarama
                 cursor.execute("SELECT * FROM targets")
             else:
-                # Zamanı gelmiş hedefleri getir:
-                # next_scrape_at kullanılarak zamanlama yönetimi yapılıyor
+                # Zamanı gelmiş hedefleri getir (MySQL NOW() yerine Python saati ile karşılaştırıyoruz ki saat farkı olmasın)
                 cursor.execute("""
                     SELECT * FROM targets
                     WHERE next_scrape_at IS NULL
-                    OR next_scrape_at <= NOW()
-                """)
+                    OR next_scrape_at <= %s
+                """, (current_time,))
             targets = cursor.fetchall()
     except Exception as e:
         print(f"Failed to fetch targets: {e}")
@@ -155,28 +155,34 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                         except Exception as e:
                             print(f"    Error inserting tweet {link}: {e}")
 
-                # Update last_scraped_at and calculate next_scrape_at based on MySQL NOW() to avoid timezone mismatch
+                # Update last_scraped_at and calculate next_scrape_at based on Python datetime to avoid timezone mismatch
+                interval_minutes = target.get('scrape_interval_minutes', 60) or 60
+                next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE targets
-                        SET last_scraped_at = NOW(),
-                            next_scrape_at = DATE_ADD(NOW(), INTERVAL COALESCE(scrape_interval_minutes, 60) MINUTE)
+                        SET last_scraped_at = %s,
+                            next_scrape_at = %s
                         WHERE id = %s
-                    """, (target_id,))
+                    """, (current_time, next_scrape_time, target_id))
 
                 conn.commit()
-                print(f"  Completed {target_name}: {new_tweets_count} new tweets saved.")
+                print(f"  Completed {target_name}: {new_tweets_count} new tweets saved. Next scrape at {next_scrape_time}")
             else:
                 # Update last_scraped_at and calculate next_scrape_at even if no tweets found
+                interval_minutes = target.get('scrape_interval_minutes', 60) or 60
+                next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE targets
-                        SET last_scraped_at = NOW(),
-                            next_scrape_at = DATE_ADD(NOW(), INTERVAL COALESCE(scrape_interval_minutes, 60) MINUTE)
+                        SET last_scraped_at = %s,
+                            next_scrape_at = %s
                         WHERE id = %s
-                    """, (target_id,))
+                    """, (current_time, next_scrape_time, target_id))
                 conn.commit()
-                print(f"  Completed {target_name}: 0 new tweets.")
+                print(f"  Completed {target_name}: 0 new tweets. Next scrape at {next_scrape_time}")
 
         except Exception as e:
             print(f"Error processing target {target_name}: {e}")
