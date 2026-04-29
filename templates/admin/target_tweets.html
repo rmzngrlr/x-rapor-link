@@ -129,7 +129,7 @@
                         </thead>
                         <tbody>
                             {% for tweet in tweets %}
-                            <tr>
+                            <tr data-date-string="{{ tweet.tweet_date.strftime('%Y-%m-%d') }}">
                                 <td class="text-center"><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}" data-id="{{ tweet.id }}"></td>
                                 <td>{{ tweet.tweet_date.strftime('%d-%m-%Y %H:%M') }}</td>
                                 <td>{{ tweet.username }}</td>
@@ -149,15 +149,130 @@
                         </tbody>
                     </table>
                 </div>
+
+                {% if tweets %}
+                <!-- Pagination Controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3 p-2 bg-light border rounded">
+                    <button type="button" id="prevDayBtn" class="btn btn-outline-primary btn-sm px-3" onclick="goToDay(-1)">
+                        &laquo; <span id="prevDayText">Önceki</span>
+                    </button>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold" id="currentDayText"></span>
+                        <input type="date" id="jumpToDate" class="form-control form-control-sm ms-2" style="width: 140px;" onchange="jumpToSelectedDate()">
+                    </div>
+
+                    <button type="button" id="nextDayBtn" class="btn btn-outline-primary btn-sm px-3" onclick="goToDay(1)">
+                        <span id="nextDayText">Sonraki</span> &raquo;
+                    </button>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <script>
+        let availableDates = [];
+        let currentDateIndex = 0;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Gather all distinct dates from the table rows (ignore the "Henüz tweet toplanmamış" row)
+            const rows = document.querySelectorAll('tbody tr[data-date-string]');
+            const dateSet = new Set();
+            rows.forEach(row => {
+                dateSet.add(row.getAttribute('data-date-string'));
+            });
+
+            // Sort dates from newest to oldest
+            availableDates = Array.from(dateSet).sort().reverse();
+
+            if (availableDates.length > 0) {
+                // Initialize view to the newest date
+                renderDayView(0);
+            }
+        });
+
+        function renderDayView(index) {
+            if (index < 0 || index >= availableDates.length) return;
+            currentDateIndex = index;
+            const targetDate = availableDates[currentDateIndex];
+
+            // Hide/Show rows based on the selected date
+            const rows = document.querySelectorAll('tbody tr[data-date-string]');
+            let visibleCount = 0;
+            rows.forEach(row => {
+                if (row.getAttribute('data-date-string') === targetDate) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Update center text (e.g. 29-05-2026)
+            const dParts = targetDate.split('-');
+            const formattedCurrent = `${dParts[2]}-${dParts[1]}-${dParts[0]} (${visibleCount} link)`;
+            document.getElementById('currentDayText').innerText = formattedCurrent;
+
+            // Set jump picker
+            document.getElementById('jumpToDate').value = targetDate;
+
+            // Update Next button (Chronologically Next means going backward in array index because array is descending)
+            const nextBtn = document.getElementById('nextDayBtn');
+            const nextText = document.getElementById('nextDayText');
+            if (currentDateIndex > 0) {
+                const nxDate = availableDates[currentDateIndex - 1];
+                const nxP = nxDate.split('-');
+                nextText.innerText = `${nxP[2]}-${nxP[1]}-${nxP[0]}`;
+                nextBtn.disabled = false;
+            } else {
+                nextText.innerText = 'Yok';
+                nextBtn.disabled = true;
+            }
+
+            // Update Prev button (Chronologically Previous means going forward in array index)
+            const prevBtn = document.getElementById('prevDayBtn');
+            const prevText = document.getElementById('prevDayText');
+            if (currentDateIndex < availableDates.length - 1) {
+                const prDate = availableDates[currentDateIndex + 1];
+                const prP = prDate.split('-');
+                prevText.innerText = `${prP[2]}-${prP[1]}-${prP[0]}`;
+                prevBtn.disabled = false;
+            } else {
+                prevText.innerText = 'Yok';
+                prevBtn.disabled = true;
+            }
+        }
+
+        function goToDay(direction) {
+            // direction 1 = Next chronologically (index - 1)
+            // direction -1 = Prev chronologically (index + 1)
+            const newIndex = currentDateIndex - direction;
+            renderDayView(newIndex);
+        }
+
+        function jumpToSelectedDate() {
+            const selected = document.getElementById('jumpToDate').value;
+            const idx = availableDates.indexOf(selected);
+            if (idx !== -1) {
+                renderDayView(idx);
+            } else {
+                alert("Seçtiğiniz tarihe ait toplanmış veri bulunmuyor.");
+                // Revert jump input to currently displayed day
+                document.getElementById('jumpToDate').value = availableDates[currentDateIndex];
+            }
+        }
+
         function toggleSelectAll() {
             const masterCheckbox = document.getElementById('selectAllCheckbox');
             const checkboxes = document.querySelectorAll('.tweet-checkbox');
-            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+            // Only check/uncheck visible rows
+            checkboxes.forEach(cb => {
+                const tr = cb.closest('tr');
+                if (tr && tr.style.display !== 'none') {
+                    cb.checked = masterCheckbox.checked;
+                }
+            });
         }
 
         function selectAll() {
