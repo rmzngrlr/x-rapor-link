@@ -364,7 +364,7 @@ def admin_dashboard():
 
                 # Get targets and their tweet counts
                 cursor.execute("""
-                    SELECT t.id, t.target_name, t.target_type, t.scrape_interval_minutes, t.last_scraped_at, COUNT(tw.id) as tweet_count
+                    SELECT t.id, t.target_name, t.target_type, t.scrape_interval_minutes, t.last_scraped_at, t.next_scrape_at, COUNT(tw.id) as tweet_count
                     FROM targets t
                     LEFT JOIN tweets tw ON t.id = tw.target_id
                     GROUP BY t.id
@@ -381,6 +381,11 @@ def admin_add_target():
     target_name = request.form.get('target_name')
     target_type = request.form.get('target_type')
     scrape_interval_minutes = request.form.get('scrape_interval_minutes', 60, type=int)
+    next_scrape_at = request.form.get('next_scrape_at')
+
+    # Empty string check for next_scrape_at
+    if not next_scrape_at:
+        next_scrape_at = None
 
     if target_name and target_type in ['user', 'list']:
         conn = get_db_connection()
@@ -388,8 +393,8 @@ def admin_add_target():
             try:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO targets (target_name, target_type, scrape_interval_minutes) VALUES (%s, %s, %s)",
-                        (target_name, target_type, scrape_interval_minutes)
+                        "INSERT INTO targets (target_name, target_type, scrape_interval_minutes, next_scrape_at) VALUES (%s, %s, %s, %s)",
+                        (target_name, target_type, scrape_interval_minutes, next_scrape_at)
                     )
                 conn.commit()
                 flash('Hedef başarıyla eklendi.', 'success')
@@ -406,18 +411,28 @@ def admin_add_target():
 @admin_required
 def admin_edit_target_interval(target_id):
     scrape_interval_minutes = request.form.get('scrape_interval_minutes', type=int)
+    next_scrape_at = request.form.get('next_scrape_at')
+
+    if not next_scrape_at:
+        next_scrape_at = None
 
     if scrape_interval_minutes and scrape_interval_minutes > 0:
         conn = get_db_connection()
         if conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute(
-                        "UPDATE targets SET scrape_interval_minutes = %s WHERE id = %s",
-                        (scrape_interval_minutes, target_id)
-                    )
+                    if next_scrape_at:
+                        cursor.execute(
+                            "UPDATE targets SET scrape_interval_minutes = %s, next_scrape_at = %s WHERE id = %s",
+                            (scrape_interval_minutes, next_scrape_at, target_id)
+                        )
+                    else:
+                        cursor.execute(
+                            "UPDATE targets SET scrape_interval_minutes = %s WHERE id = %s",
+                            (scrape_interval_minutes, target_id)
+                        )
                 conn.commit()
-                flash('Tarama sıklığı başarıyla güncellendi.', 'success')
+                flash('Tarama sıklığı/zamanı başarıyla güncellendi.', 'success')
             except Exception as e:
                 flash(f'Hata oluştu: {e}', 'danger')
             finally:
