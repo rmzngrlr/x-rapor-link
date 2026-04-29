@@ -402,6 +402,31 @@ def admin_add_target():
 
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/target/edit_interval/<int:target_id>', methods=['POST'])
+@admin_required
+def admin_edit_target_interval(target_id):
+    scrape_interval_minutes = request.form.get('scrape_interval_minutes', type=int)
+
+    if scrape_interval_minutes and scrape_interval_minutes > 0:
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE targets SET scrape_interval_minutes = %s WHERE id = %s",
+                        (scrape_interval_minutes, target_id)
+                    )
+                conn.commit()
+                flash('Tarama sıklığı başarıyla güncellendi.', 'success')
+            except Exception as e:
+                flash(f'Hata oluştu: {e}', 'danger')
+            finally:
+                conn.close()
+    else:
+        flash('Geçersiz dakika değeri.', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/admin/target/delete/<int:target_id>', methods=['POST'])
 @admin_required
 def admin_delete_target(target_id):

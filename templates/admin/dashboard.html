@@ -30,6 +30,30 @@
         </div>
     </nav>
 
+    <!-- Edit Interval Modal -->
+    <div class="modal fade" id="editIntervalModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="editIntervalForm" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Tarama Sıklığını Düzenle</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Tarama Sıklığı (Dakika)</label>
+                            <input type="number" name="scrape_interval_minutes" id="editIntervalInput" class="form-control" min="1" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-primary">Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings & Password Modal -->
     <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -41,19 +65,13 @@
                 <form action="{{ url_for('admin_update_settings') }}" method="POST">
                     <div class="modal-body">
                         <h6 class="fw-bold mb-3">Zamanlama Ayarları</h6>
-                        <div class="mb-3">
-                            <label class="form-label">İlk Başlama Saati (0-23)</label>
-                            <input type="number" name="start_hour" class="form-control" value="{{ settings.start_hour }}" min="0" max="23" required>
-                            <small class="text-muted">Günün hangi saatinde tarama döngüsünün başlayacağını seçin.</small>
+                        <div class="alert alert-info py-2 small mb-0">
+                            <em>Artık tarama sıklıkları her hedef için özel olarak belirlenmektedir. Arka plan servisi her 5 dakikada bir kontrol eder ve vakti gelen hedefleri otomatik olarak tarar.</em>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tarama Sıklığı (Saat)</label>
-                            <input type="number" name="interval_hours" class="form-control" value="{{ settings.interval_hours }}" min="1" max="24" required>
-                            <small class="text-muted">İlk taramadan sonra kaç saatte bir tekrar edileceğini seçin.</small>
-                        </div>
-                        <div class="alert alert-info py-2 small">
-                            <em>Örn: Başlangıç 0, Sıklık 6 yaparsanız her gün 00:00, 06:00, 12:00, 18:00 saatlerinde çalışır.</em>
-                        </div>
+
+                        <!-- Keep hidden inputs to not break backend route expecting these fields for now -->
+                        <input type="hidden" name="start_hour" value="{{ settings.start_hour }}">
+                        <input type="hidden" name="interval_hours" value="{{ settings.interval_hours }}">
 
                         <hr class="my-4">
 
@@ -129,7 +147,11 @@
                         <tbody>
                             {% for target in targets %}
                             <tr>
-                                <td>{{ target.target_name }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin_view_target', target_id=target.id) }}" class="text-decoration-none fw-bold">
+                                        {{ target.target_name }}
+                                    </a>
+                                </td>
                                 <td>{{ 'Kullanıcı' if target.target_type == 'user' else 'Liste' }}</td>
                                 <td>
                                     {% if target.scrape_interval_minutes %}
@@ -150,11 +172,17 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ target.tweet_count }}</td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Sadece bu hedefi taramak istediğinize emin misiniz?');">
                                         <button type="submit" class="btn btn-warning btn-sm">Bunu Tara</button>
                                     </form>
-                                    <a href="{{ url_for('admin_view_target', target_id=target.id) }}" class="btn btn-primary btn-sm">Görüntüle</a>
+                                    <button type="button" class="btn btn-secondary btn-sm edit-interval-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editIntervalModal"
+                                            data-target-id="{{ target.id }}"
+                                            data-interval="{{ target.scrape_interval_minutes or 60 }}">
+                                        Düzenle
+                                    </button>
                                     <form action="{{ url_for('admin_delete_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefi ve toplanan tüm tweetlerini silmek istediğinize emin misiniz?');">
                                         <button type="submit" class="btn btn-danger btn-sm">Sil</button>
                                     </form>
@@ -172,5 +200,22 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var editBtns = document.querySelectorAll('.edit-interval-btn');
+            var form = document.getElementById('editIntervalForm');
+            var input = document.getElementById('editIntervalInput');
+
+            editBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var targetId = this.getAttribute('data-target-id');
+                    var interval = this.getAttribute('data-interval');
+                    input.value = interval;
+                    // Update form action with dynamic target ID
+                    form.action = '/admin/target/edit_interval/' + targetId;
+                });
+            });
+        });
+    </script>
 </body>
 </html>
