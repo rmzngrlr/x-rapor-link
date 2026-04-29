@@ -69,16 +69,9 @@
                 </div>
                 <form action="{{ url_for('admin_update_settings') }}" method="POST">
                     <div class="modal-body">
-                        <h6 class="fw-bold mb-3">Zamanlama Ayarları</h6>
-                        <div class="alert alert-info py-2 small mb-0">
-                            <em>Artık tarama sıklıkları her hedef için özel olarak belirlenmektedir. Arka plan servisi her 5 dakikada bir kontrol eder ve vakti gelen hedefleri otomatik olarak tarar.</em>
-                        </div>
-
                         <!-- Keep hidden inputs to not break backend route expecting these fields for now -->
                         <input type="hidden" name="start_hour" value="{{ settings.start_hour }}">
                         <input type="hidden" name="interval_hours" value="{{ settings.interval_hours }}">
-
-                        <hr class="my-4">
 
                         <h6 class="fw-bold mb-3">Şifre Değiştirme</h6>
                         <div class="mb-3">
