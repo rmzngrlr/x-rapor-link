@@ -33,16 +33,15 @@ def load_auth_credentials():
     return "", ""
 
 def run_incremental_scraping(specific_target_id=None, force_scrape=False):
-    print(f"[{datetime.now()}] Starting incremental scraping job... (Force: {force_scrape})")
     auth_user, auth_pass = load_auth_credentials()
 
     if not auth_user or not auth_pass:
-        print("Scraping job aborted: No authentication credentials found in config.json")
+        # Sadece manuel tetiklemede veya hata ayıklamada gösterilebilir,
+        # ancak şimdilik sessiz tutuyoruz (sürekli hata vermemesi için)
         return
 
     conn = get_db_connection()
     if not conn:
-        print("Scraping job aborted: Cannot connect to database.")
         return
 
     targets = []
@@ -68,9 +67,11 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
         return
 
     if not targets:
-        print(f"[{datetime.now()}] No targets due for scraping.")
+        # Eğer tarancak hedef yoksa log kalabalığı yapmamak için sessizce çıkıyoruz.
         conn.close()
         return
+
+    print(f"[{datetime.now()}] Starting incremental scraping job... (Targets: {len(targets)}, Force: {force_scrape})")
 
     for target in targets:
         target_id = target['id']
