@@ -138,34 +138,47 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                         except Exception as e:
                             print(f"    Error inserting tweet {link}: {e}")
 
-                # Update last_scraped_at and calculate next_scrape_at based on Python datetime to avoid timezone mismatch
-                interval_minutes = target.get('scrape_interval_minutes', 60) or 60
-                next_scrape_time = current_time + timedelta(minutes=interval_minutes)
-
                 with conn.cursor() as cursor:
-                    cursor.execute("""
-                        UPDATE targets
-                        SET last_scraped_at = %s,
-                            next_scrape_at = %s
-                        WHERE id = %s
-                    """, (current_time, next_scrape_time, target_id))
-
+                    if force_scrape and target.get('next_scrape_at'):
+                        # Manuel tarama ise planlanmış next_scrape_at'e dokunmuyoruz.
+                        cursor.execute("""
+                            UPDATE targets
+                            SET last_scraped_at = %s
+                            WHERE id = %s
+                        """, (current_time, target_id))
+                        print(f"  Completed {target_name}: {new_tweets_count} new tweets saved. (Manual scrape, schedule unchanged)")
+                    else:
+                        # Otomatik taramaysa veya next_scrape_at boşsa, yeni tarama zamanını hesapla.
+                        interval_minutes = target.get('scrape_interval_minutes', 60) or 60
+                        next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+                        cursor.execute("""
+                            UPDATE targets
+                            SET last_scraped_at = %s,
+                                next_scrape_at = %s
+                            WHERE id = %s
+                        """, (current_time, next_scrape_time, target_id))
+                        print(f"  Completed {target_name}: {new_tweets_count} new tweets saved. Next scrape at {next_scrape_time}")
                 conn.commit()
-                print(f"  Completed {target_name}: {new_tweets_count} new tweets saved. Next scrape at {next_scrape_time}")
             else:
-                # Update last_scraped_at and calculate next_scrape_at even if no tweets found
-                interval_minutes = target.get('scrape_interval_minutes', 60) or 60
-                next_scrape_time = current_time + timedelta(minutes=interval_minutes)
-
                 with conn.cursor() as cursor:
-                    cursor.execute("""
-                        UPDATE targets
-                        SET last_scraped_at = %s,
-                            next_scrape_at = %s
-                        WHERE id = %s
-                    """, (current_time, next_scrape_time, target_id))
+                    if force_scrape and target.get('next_scrape_at'):
+                        cursor.execute("""
+                            UPDATE targets
+                            SET last_scraped_at = %s
+                            WHERE id = %s
+                        """, (current_time, target_id))
+                        print(f"  Completed {target_name}: 0 new tweets. (Manual scrape, schedule unchanged)")
+                    else:
+                        interval_minutes = target.get('scrape_interval_minutes', 60) or 60
+                        next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+                        cursor.execute("""
+                            UPDATE targets
+                            SET last_scraped_at = %s,
+                                next_scrape_at = %s
+                            WHERE id = %s
+                        """, (current_time, next_scrape_time, target_id))
+                        print(f"  Completed {target_name}: 0 new tweets. Next scrape at {next_scrape_time}")
                 conn.commit()
-                print(f"  Completed {target_name}: 0 new tweets. Next scrape at {next_scrape_time}")
 
         except Exception as e:
             print(f"Error processing target {target_name}: {e}")
