@@ -267,30 +267,6 @@ def admin_logout():
     session.pop('admin_username', None)
     return redirect(url_for('admin_login'))
 
-@app.route('/admin/change_password', methods=['POST'])
-@admin_required
-def admin_change_password():
-    new_password = request.form.get('new_password')
-    if not new_password or len(new_password) < 4:
-        flash('Şifre en az 4 karakter olmalıdır.', 'danger')
-        return redirect(url_for('admin_dashboard'))
-
-    username = session.get('admin_username')
-    conn = get_db_connection()
-    if conn:
-        try:
-            with conn.cursor() as cursor:
-                new_hash = generate_password_hash(new_password)
-                cursor.execute("UPDATE admin_users SET password_hash = %s WHERE username = %s", (new_hash, username))
-            conn.commit()
-            flash('Şifreniz başarıyla değiştirildi.', 'success')
-        except Exception as e:
-            flash(f'Hata oluştu: {e}', 'danger')
-        finally:
-            conn.close()
-
-    return redirect(url_for('admin_dashboard'))
-
 @app.route('/admin/trigger_scrape', methods=['POST'])
 @admin_required
 def admin_trigger_scrape():
@@ -339,6 +315,7 @@ def admin_trigger_scrape_target(target_id):
 def admin_update_settings():
     start_hour = request.form.get('start_hour', type=int, default=0)
     interval_hours = request.form.get('interval_hours', type=int, default=6)
+    new_password = request.form.get('new_password')
 
     if start_hour < 0 or start_hour > 23:
         flash('Başlangıç saati 0-23 arasında olmalıdır.', 'danger')
@@ -352,14 +329,26 @@ def admin_update_settings():
     if conn:
         try:
             with conn.cursor() as cursor:
+                # Update scheduler settings
                 cursor.execute("SELECT COUNT(*) as count FROM settings")
                 result = cursor.fetchone()
                 if result['count'] == 0:
                     cursor.execute("INSERT INTO settings (start_hour, interval_hours) VALUES (%s, %s)", (start_hour, interval_hours))
                 else:
                     cursor.execute("UPDATE settings SET start_hour = %s, interval_hours = %s", (start_hour, interval_hours))
+
+                # Check and update password if provided
+                if new_password:
+                    if len(new_password) < 4:
+                        flash('Şifre en az 4 karakter olmalıdır.', 'danger')
+                    else:
+                        username = session.get('admin_username')
+                        new_hash = generate_password_hash(new_password)
+                        cursor.execute("UPDATE admin_users SET password_hash = %s WHERE username = %s", (new_hash, username))
+                        flash('Şifreniz de başarıyla güncellendi.', 'success')
+
             conn.commit()
-            flash('Zamanlama ayarları başarıyla güncellendi.', 'success')
+            flash('Zamanlama ayarları başarıyla kaydedildi.', 'success')
 
             # Update scheduler dynamically
             if hasattr(app, 'apply_scheduler_settings'):

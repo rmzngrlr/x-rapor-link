@@ -19,28 +19,28 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
-                <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
-                    <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 w-100 w-lg-auto" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
-                        <button type="submit" class="btn btn-warning btn-sm w-100">Tümünü Tara</button>
+                <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
+                    <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 d-flex w-100 w-lg-auto" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
+                        <button type="submit" class="btn btn-warning btn-sm text-nowrap w-100">Tümünü Tara</button>
                     </form>
-                    <button type="button" class="btn btn-outline-info btn-sm w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
-                    <button type="button" class="btn btn-outline-light btn-sm w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Şifre Değiştir</button>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm w-100 w-lg-auto text-center">Çıkış Yap</a>
+                    <button type="button" class="btn btn-outline-info btn-sm text-nowrap w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm text-nowrap w-100 w-lg-auto text-center">Çıkış Yap</a>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Settings Modal -->
+    <!-- Settings & Password Modal -->
     <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Zamanlama Ayarları</h5>
+                    <h5 class="modal-title">Sistem Ayarları</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
                 </div>
                 <form action="{{ url_for('admin_update_settings') }}" method="POST">
                     <div class="modal-body">
+                        <h6 class="fw-bold mb-3">Zamanlama Ayarları</h6>
                         <div class="mb-3">
                             <label class="form-label">İlk Başlama Saati (0-23)</label>
                             <input type="number" name="start_hour" class="form-control" value="{{ settings.start_hour }}" min="0" max="23" required>
@@ -54,29 +54,14 @@
                         <div class="alert alert-info py-2 small">
                             <em>Örn: Başlangıç 0, Sıklık 6 yaparsanız her gün 00:00, 06:00, 12:00, 18:00 saatlerinde çalışır.</em>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                        <button type="submit" class="btn btn-primary">Kaydet</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
-    <!-- Change Password Modal -->
-    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Şifre Değiştir</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                </div>
-                <form action="{{ url_for('admin_change_password') }}" method="POST">
-                    <div class="modal-body">
+                        <hr class="my-4">
+
+                        <h6 class="fw-bold mb-3">Şifre Değiştirme</h6>
                         <div class="mb-3">
-                            <label class="form-label">Yeni Şifre</label>
-                            <input type="password" name="new_password" class="form-control" required minlength="4">
+                            <label class="form-label">Yeni Şifre (İsteğe Bağlı)</label>
+                            <input type="password" name="new_password" class="form-control" minlength="4" placeholder="Değiştirmek istemiyorsanız boş bırakın">
+                            <small class="text-muted">En az 4 karakter olmalıdır.</small>
                         </div>
                     </div>
                     <div class="modal-footer">
