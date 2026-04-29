@@ -1,0 +1,7 @@
+Default admin user created (admin/admin).
+Default settings initialized.
+Database initialized successfully.
+Scheduler updated: Polling for due targets every minute.
+İşçi iş parçacığı başlatıldı...
+ * Serving Flask app 'app'
+ * Debug mode: off
