@@ -41,9 +41,9 @@
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">İlk/Sonraki Tarama Zamanı (Opsiyonel)</label>
-                            <input type="datetime-local" name="next_scrape_at" id="editNextScrapeInput" class="form-control">
-                            <small class="text-muted">Taramayı ileri bir tarihe ertelemek için kullanabilirsiniz. Boş bırakırsanız sadece sıklık güncellenir.</small>
+                            <label class="form-label">İlk/Sonraki Tarama Saati (Opsiyonel)</label>
+                            <input type="time" name="next_scrape_time" id="editNextScrapeInput" class="form-control">
+                            <small class="text-muted">Girdiğiniz saat bugün geçmediyse bugün, geçtiyse yarın olarak planlanır. Boş bırakırsanız sadece sıklık güncellenir.</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Tarama Sıklığı (Dakika)</label>
@@ -122,8 +122,8 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label mb-1">İlk Tarama (Opsiyonel)</label>
-                            <input type="datetime-local" name="next_scrape_at" class="form-control" title="Boş bırakılırsa hemen taranır">
+                            <label class="form-label mb-1">İlk Tarama Saati (Ops.)</label>
+                            <input type="time" name="next_scrape_time" class="form-control" title="Boş bırakılırsa hemen taranır">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label mb-1">Sıklık (Dakika)</label>

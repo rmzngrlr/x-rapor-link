@@ -8,7 +8,7 @@ import requests
 import io
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import x_scraper
 from x_scraper import run_process, CONFIG_FILE, request_stop
 from db import init_db, get_db_connection
@@ -375,17 +375,32 @@ def admin_dashboard():
 
     return render_template('admin/dashboard.html', targets=targets, settings=settings)
 
+def parse_next_scrape_time(time_str):
+    if not time_str:
+        return None
+    try:
+        hour, minute = map(int, time_str.split(':'))
+        now = datetime.now()
+        target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+        # If the specified time has already passed today, schedule it for tomorrow
+        if target_time <= now:
+            target_time += timedelta(days=1)
+
+        return target_time.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        print(f"Error parsing time: {e}")
+        return None
+
 @app.route('/admin/target/add', methods=['POST'])
 @admin_required
 def admin_add_target():
     target_name = request.form.get('target_name')
     target_type = request.form.get('target_type')
     scrape_interval_minutes = request.form.get('scrape_interval_minutes', 60, type=int)
-    next_scrape_at = request.form.get('next_scrape_at')
+    next_scrape_time_str = request.form.get('next_scrape_time')
 
-    # Empty string check for next_scrape_at
-    if not next_scrape_at:
-        next_scrape_at = None
+    next_scrape_at = parse_next_scrape_time(next_scrape_time_str)
 
     if target_name and target_type in ['user', 'list']:
         conn = get_db_connection()
@@ -411,10 +426,9 @@ def admin_add_target():
 @admin_required
 def admin_edit_target_interval(target_id):
     scrape_interval_minutes = request.form.get('scrape_interval_minutes', type=int)
-    next_scrape_at = request.form.get('next_scrape_at')
+    next_scrape_time_str = request.form.get('next_scrape_time')
 
-    if not next_scrape_at:
-        next_scrape_at = None
+    next_scrape_at = parse_next_scrape_time(next_scrape_time_str)
 
     if scrape_interval_minutes and scrape_interval_minutes > 0:
         conn = get_db_connection()
