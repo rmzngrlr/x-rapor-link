@@ -99,6 +99,21 @@ def init_db():
             except Exception as alt_e:
                 pass
 
+            try:
+                cursor.execute("ALTER TABLE targets ADD COLUMN next_scrape_at DATETIME NULL")
+            except Exception as alt_e:
+                pass
+
+            # Populate next_scrape_at for existing targets if NULL
+            try:
+                cursor.execute("""
+                    UPDATE targets
+                    SET next_scrape_at = DATE_ADD(COALESCE(last_scraped_at, NOW()), INTERVAL COALESCE(scrape_interval_minutes, 60) MINUTE)
+                    WHERE next_scrape_at IS NULL
+                """)
+            except Exception as alt_e:
+                pass
+
             # Table: tweets
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS tweets (

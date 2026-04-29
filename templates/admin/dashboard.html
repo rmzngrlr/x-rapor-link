@@ -41,6 +41,11 @@
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
+                            <label class="form-label">İlk/Sonraki Tarama Zamanı (Opsiyonel)</label>
+                            <input type="datetime-local" name="next_scrape_at" id="editNextScrapeInput" class="form-control">
+                            <small class="text-muted">Taramayı ileri bir tarihe ertelemek için kullanabilirsiniz. Boş bırakırsanız sadece sıklık güncellenir.</small>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Tarama Sıklığı (Dakika)</label>
                             <input type="number" name="scrape_interval_minutes" id="editIntervalInput" class="form-control" min="1" required>
                         </div>
@@ -105,19 +110,23 @@
                 <h5 class="card-title">Yeni Hedef Ekle</h5>
                 <form action="{{ url_for('admin_add_target') }}" method="POST">
                     <div class="row g-3 align-items-end">
-                        <div class="col-md-4">
-                            <label class="form-label mb-1">Kullanıcı adı veya Liste Linki</label>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1">Kullanıcı veya Liste Linki</label>
                             <input type="text" name="target_name" class="form-control" placeholder="Örn: elonmusk" required>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label mb-1">Tür</label>
                             <select name="target_type" class="form-select" required>
-                                <option value="user">Kullanıcı (Profil)</option>
-                                <option value="list">Twitter Listesi</option>
+                                <option value="user">Kullanıcı</option>
+                                <option value="list">Liste</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label mb-1">Tarama Sıklığı (Dakika)</label>
+                            <label class="form-label mb-1">İlk Tarama (Opsiyonel)</label>
+                            <input type="datetime-local" name="next_scrape_at" class="form-control" title="Boş bırakılırsa hemen taranır">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label mb-1">Sıklık (Dakika)</label>
                             <input type="number" name="scrape_interval_minutes" class="form-control" placeholder="Örn: 60" value="60" min="1" required>
                         </div>
                         <div class="col-md-2">
@@ -167,8 +176,13 @@
                                 <td>
                                     {% if target.last_scraped_at %}
                                         {{ target.last_scraped_at.strftime('%d-%m-%Y %H:%M') }}
+                                        {% if target.next_scrape_at %}
+                                            <br><small class="text-muted">Sonraki: {{ target.next_scrape_at.strftime('%d-%m-%Y %H:%M') }}</small>
+                                        {% endif %}
+                                    {% elif target.next_scrape_at %}
+                                        <span class="text-info">Planlandı: {{ target.next_scrape_at.strftime('%d-%m-%Y %H:%M') }}</span>
                                     {% else %}
-                                        <span class="text-muted">Hiç taranmadı</span>
+                                        <span class="text-muted">Bekliyor...</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ target.tweet_count }}</td>
@@ -211,6 +225,8 @@
                     var targetId = this.getAttribute('data-target-id');
                     var interval = this.getAttribute('data-interval');
                     input.value = interval;
+                    // Reset next_scrape_at input
+                    document.getElementById('editNextScrapeInput').value = '';
                     // Update form action with dynamic target ID
                     form.action = '/admin/target/edit_interval/' + targetId;
                 });

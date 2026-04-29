@@ -54,13 +54,12 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                 # Manuel tetiklemelerde tüm hedefleri zorla tarama
                 cursor.execute("SELECT * FROM targets")
             else:
-                # Sadece zamanı gelmiş olan hedefleri getir:
-                # (Hiç taranmamışsa VEYA son taramadan bu yana scrape_interval_minutes geçmişse)
-                # Not: COALESCE(scrape_interval_minutes, 60) kullanarak eski veriler için varsayılanı 60 kabul ediyoruz
+                # Zamanı gelmiş hedefleri getir:
+                # next_scrape_at kullanılarak zamanlama yönetimi yapılıyor
                 cursor.execute("""
                     SELECT * FROM targets
-                    WHERE last_scraped_at IS NULL
-                    OR TIMESTAMPDIFF(MINUTE, last_scraped_at, NOW()) >= COALESCE(scrape_interval_minutes, 60)
+                    WHERE next_scrape_at IS NULL
+                    OR next_scrape_at <= NOW()
                 """)
             targets = cursor.fetchall()
     except Exception as e:
@@ -156,16 +155,26 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                         except Exception as e:
                             print(f"    Error inserting tweet {link}: {e}")
 
-                # Update last_scraped_at timestamp
+                # Update last_scraped_at and calculate next_scrape_at based on MySQL NOW() to avoid timezone mismatch
                 with conn.cursor() as cursor:
-                    cursor.execute("UPDATE targets SET last_scraped_at = %s WHERE id = %s", (end_datetime, target_id))
+                    cursor.execute("""
+                        UPDATE targets
+                        SET last_scraped_at = NOW(),
+                            next_scrape_at = DATE_ADD(NOW(), INTERVAL COALESCE(scrape_interval_minutes, 60) MINUTE)
+                        WHERE id = %s
+                    """, (target_id,))
 
                 conn.commit()
                 print(f"  Completed {target_name}: {new_tweets_count} new tweets saved.")
             else:
-                # Update last_scraped_at timestamp even if no tweets found
+                # Update last_scraped_at and calculate next_scrape_at even if no tweets found
                 with conn.cursor() as cursor:
-                    cursor.execute("UPDATE targets SET last_scraped_at = %s WHERE id = %s", (end_datetime, target_id))
+                    cursor.execute("""
+                        UPDATE targets
+                        SET last_scraped_at = NOW(),
+                            next_scrape_at = DATE_ADD(NOW(), INTERVAL COALESCE(scrape_interval_minutes, 60) MINUTE)
+                        WHERE id = %s
+                    """, (target_id,))
                 conn.commit()
                 print(f"  Completed {target_name}: 0 new tweets.")
 
