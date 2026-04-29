@@ -78,31 +78,17 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
         return ','.join(map(str, sorted(hours)))
 
     def apply_scheduler_settings():
-        conn = get_db_connection()
-        start_hour = 0
-        interval_hours = 6
-        if conn:
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT start_hour, interval_hours FROM settings ORDER BY id DESC LIMIT 1")
-                    settings = cursor.fetchone()
-                    if settings:
-                        start_hour = settings['start_hour']
-                        interval_hours = settings['interval_hours']
-            except Exception as e:
-                print(f"Failed to load settings: {e}")
-            finally:
-                conn.close()
-
-        cron_hours = generate_cron_hours(start_hour, interval_hours)
+        # Polling tabanlı scheduler'a geçildiği için veritabanındaki settings'den
+        # genel bir interval almak yerine, her hedefin kendi interval_minutes değerine
+        # göre çalışması için 5 dakikada bir kontrol eden genel bir görev ekliyoruz.
 
         # Remove existing job if any
         if scheduler.get_job('incremental_scrape_job'):
             scheduler.remove_job('incremental_scrape_job')
 
-        # Add new job
-        scheduler.add_job(locked_scheduled_scrape, 'cron', hour=cron_hours, minute=0, id='incremental_scrape_job')
-        print(f"Scheduler updated: running at hours {cron_hours} (start: {start_hour}:00, interval: {interval_hours}h)", flush=True)
+        # Add polling job (every 5 minutes)
+        scheduler.add_job(locked_scheduled_scrape, 'interval', minutes=5, id='incremental_scrape_job')
+        print(f"Scheduler updated: Polling for due targets every 5 minutes.", flush=True)
 
     # Initial apply
     apply_scheduler_settings()
@@ -378,7 +364,7 @@ def admin_dashboard():
 
                 # Get targets and their tweet counts
                 cursor.execute("""
-                    SELECT t.id, t.target_name, t.target_type, t.last_scraped_at, COUNT(tw.id) as tweet_count
+                    SELECT t.id, t.target_name, t.target_type, t.scrape_interval_minutes, t.last_scraped_at, COUNT(tw.id) as tweet_count
                     FROM targets t
                     LEFT JOIN tweets tw ON t.id = tw.target_id
                     GROUP BY t.id
@@ -394,13 +380,17 @@ def admin_dashboard():
 def admin_add_target():
     target_name = request.form.get('target_name')
     target_type = request.form.get('target_type')
+    scrape_interval_minutes = request.form.get('scrape_interval_minutes', 60, type=int)
 
     if target_name and target_type in ['user', 'list']:
         conn = get_db_connection()
         if conn:
             try:
                 with conn.cursor() as cursor:
-                    cursor.execute("INSERT INTO targets (target_name, target_type) VALUES (%s, %s)", (target_name, target_type))
+                    cursor.execute(
+                        "INSERT INTO targets (target_name, target_type, scrape_interval_minutes) VALUES (%s, %s, %s)",
+                        (target_name, target_type, scrape_interval_minutes)
+                    )
                 conn.commit()
                 flash('Hedef başarıyla eklendi.', 'success')
             except Exception as e:

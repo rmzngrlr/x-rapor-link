@@ -51,10 +51,22 @@ def run_incremental_scraping(specific_target_id=None):
             if specific_target_id:
                 cursor.execute("SELECT * FROM targets WHERE id = %s", (specific_target_id,))
             else:
-                cursor.execute("SELECT * FROM targets")
+                # Sadece zamanı gelmiş olan hedefleri getir:
+                # (Hiç taranmamışsa VEYA son taramadan bu yana scrape_interval_minutes geçmişse)
+                # Not: COALESCE(scrape_interval_minutes, 60) kullanarak eski veriler için varsayılanı 60 kabul ediyoruz
+                cursor.execute("""
+                    SELECT * FROM targets
+                    WHERE last_scraped_at IS NULL
+                    OR TIMESTAMPDIFF(MINUTE, last_scraped_at, NOW()) >= COALESCE(scrape_interval_minutes, 60)
+                """)
             targets = cursor.fetchall()
     except Exception as e:
         print(f"Failed to fetch targets: {e}")
+        conn.close()
+        return
+
+    if not targets:
+        print(f"[{datetime.now()}] No targets due for scraping.")
         conn.close()
         return
 

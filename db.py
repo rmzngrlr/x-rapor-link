@@ -81,6 +81,7 @@ def init_db():
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     target_name VARCHAR(255) NOT NULL,
                     target_type ENUM('user', 'list') NOT NULL,
+                    scrape_interval_minutes INT NOT NULL DEFAULT 60,
                     last_scraped_at DATETIME NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -91,6 +92,11 @@ def init_db():
                 cursor.execute("ALTER TABLE targets ADD COLUMN last_scraped_at DATETIME NULL")
             except Exception as alt_e:
                 # Ignore if column already exists
+                pass
+
+            try:
+                cursor.execute("ALTER TABLE targets ADD COLUMN scrape_interval_minutes INT NOT NULL DEFAULT 60")
+            except Exception as alt_e:
                 pass
 
             # Table: tweets

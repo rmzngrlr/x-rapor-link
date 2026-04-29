@@ -86,15 +86,21 @@
             <div class="card-body">
                 <h5 class="card-title">Yeni Hedef Ekle</h5>
                 <form action="{{ url_for('admin_add_target') }}" method="POST">
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-6">
-                            <input type="text" name="target_name" class="form-control" placeholder="Kullanıcı adı veya Liste Linki" required>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label mb-1">Kullanıcı adı veya Liste Linki</label>
+                            <input type="text" name="target_name" class="form-control" placeholder="Örn: elonmusk" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label mb-1">Tür</label>
                             <select name="target_type" class="form-select" required>
                                 <option value="user">Kullanıcı (Profil)</option>
                                 <option value="list">Twitter Listesi</option>
                             </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1">Tarama Sıklığı (Dakika)</label>
+                            <input type="number" name="scrape_interval_minutes" class="form-control" placeholder="Örn: 60" value="60" min="1" required>
                         </div>
                         <div class="col-md-2">
                             <button type="submit" class="btn btn-success w-100">Ekle</button>
@@ -114,6 +120,7 @@
                             <tr>
                                 <th>Hedef</th>
                                 <th>Tür</th>
+                                <th>Sıklık</th>
                                 <th>Son Tarama</th>
                                 <th>Toplanan Tweet</th>
                                 <th class="text-end">İşlemler</th>
@@ -124,6 +131,17 @@
                             <tr>
                                 <td>{{ target.target_name }}</td>
                                 <td>{{ 'Kullanıcı' if target.target_type == 'user' else 'Liste' }}</td>
+                                <td>
+                                    {% if target.scrape_interval_minutes %}
+                                        {% if target.scrape_interval_minutes < 60 %}
+                                            {{ target.scrape_interval_minutes }} dk
+                                        {% else %}
+                                            {{ target.scrape_interval_minutes // 60 }} saat
+                                        {% endif %}
+                                    {% else %}
+                                        1 saat
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if target.last_scraped_at %}
                                         {{ target.last_scraped_at.strftime('%d-%m-%Y %H:%M') }}
