@@ -78,17 +78,16 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
         return ','.join(map(str, sorted(hours)))
 
     def apply_scheduler_settings():
-        # Polling tabanlı scheduler'a geçildiği için veritabanındaki settings'den
-        # genel bir interval almak yerine, her hedefin kendi interval_minutes değerine
-        # göre çalışması için 5 dakikada bir kontrol eden genel bir görev ekliyoruz.
+        # Her hedefin kendi interval_minutes değerine göre tam vaktinde çalışması için
+        # her 1 dakikada bir kontrol eden genel bir görev ekliyoruz. (cron minute='*')
 
         # Remove existing job if any
         if scheduler.get_job('incremental_scrape_job'):
             scheduler.remove_job('incremental_scrape_job')
 
-        # Add polling job (every 5 minutes)
-        scheduler.add_job(locked_scheduled_scrape, 'interval', minutes=5, id='incremental_scrape_job')
-        print(f"Scheduler updated: Polling for due targets every 5 minutes.", flush=True)
+        # Add polling job (every minute)
+        scheduler.add_job(locked_scheduled_scrape, 'cron', minute='*', id='incremental_scrape_job')
+        print(f"Scheduler updated: Polling for due targets every minute.", flush=True)
 
     # Initial apply
     apply_scheduler_settings()
