@@ -263,7 +263,7 @@ def admin_trigger_scrape():
 
     def locked_scrape():
         with MANUAL_SCRAPE_LOCK:
-            run_incremental_scraping()
+            run_incremental_scraping(force_scrape=True)
 
     # Run the scraping task in a separate background thread so it doesn't block the UI
     scrape_thread = threading.Thread(target=locked_scrape, daemon=True)
@@ -285,7 +285,7 @@ def admin_trigger_scrape_target(target_id):
 
     def locked_scrape_target():
         with MANUAL_SCRAPE_LOCK:
-            run_incremental_scraping(specific_target_id=target_id)
+            run_incremental_scraping(specific_target_id=target_id, force_scrape=True)
 
     scrape_thread = threading.Thread(target=locked_scrape_target, daemon=True)
     scrape_thread.start()

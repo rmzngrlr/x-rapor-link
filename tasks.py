@@ -32,8 +32,8 @@ def load_auth_credentials():
             pass
     return "", ""
 
-def run_incremental_scraping(specific_target_id=None):
-    print(f"[{datetime.now()}] Starting incremental scraping job...")
+def run_incremental_scraping(specific_target_id=None, force_scrape=False):
+    print(f"[{datetime.now()}] Starting incremental scraping job... (Force: {force_scrape})")
     auth_user, auth_pass = load_auth_credentials()
 
     if not auth_user or not auth_pass:
@@ -50,6 +50,9 @@ def run_incremental_scraping(specific_target_id=None):
         with conn.cursor() as cursor:
             if specific_target_id:
                 cursor.execute("SELECT * FROM targets WHERE id = %s", (specific_target_id,))
+            elif force_scrape:
+                # Manuel tetiklemelerde tüm hedefleri zorla tarama
+                cursor.execute("SELECT * FROM targets")
             else:
                 # Sadece zamanı gelmiş olan hedefleri getir:
                 # (Hiç taranmamışsa VEYA son taramadan bu yana scrape_interval_minutes geçmişse)
