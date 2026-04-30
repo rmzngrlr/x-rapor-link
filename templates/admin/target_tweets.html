@@ -59,15 +59,15 @@
                         </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefi taramak istediğinize emin misiniz?');" style="flex: 1 1 auto;">
-                            <button type="submit" class="btn btn-warning btn-sm w-100">Şimdi Tara</button>
+                        <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefi taramak istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-warning btn-sm">Şimdi Tara</button>
                         </form>
-                        <button type="button" class="btn btn-secondary btn-sm flex-fill" onclick="selectAll()">Tümünü Seç</button>
-                        <button type="button" class="btn btn-success btn-sm flex-fill" onclick="copySelected()">Seçilenleri Kopyala</button>
-                        <button type="button" class="btn btn-info btn-sm flex-fill text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Seç</button>
-                        <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="deleteSelected()">Seçilenleri Sil</button>
-                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');" style="flex: 1 1 auto;">
-                            <button type="submit" class="btn btn-danger btn-sm fw-bold w-100">Tümünü Sil</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">Tümünü Seç</button>
+                        <button type="button" class="btn btn-success btn-sm" onclick="copySelected()">Seçilenleri Kopyala</button>
+                        <button type="button" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Seç</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteSelected()">Seçilenleri Sil</button>
+                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
+                            <button type="submit" class="btn btn-danger btn-sm fw-bold">Tümünü Sil</button>
                         </form>
                     </div>
                 </div>
