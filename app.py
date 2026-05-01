@@ -50,7 +50,7 @@ init_db()
 
 # Scheduler Setup
 from apscheduler.schedulers.background import BackgroundScheduler
-from tasks import run_incremental_scraping
+from tasks import run_incremental_scraping, run_daily_verification
 import atexit
 
 # Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
@@ -65,6 +65,13 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
                 run_incremental_scraping()
         else:
             log_debug("Zamanlanmış tarama atlandı, çünkü manuel bir tarama devam ediyor.")
+
+    def locked_daily_verification():
+        if not MANUAL_SCRAPE_LOCK.locked():
+            with MANUAL_SCRAPE_LOCK:
+                run_daily_verification()
+        else:
+            log_debug("Günlük doğrulama atlandı, çünkü manuel bir tarama devam ediyor.")
 
     def generate_cron_hours(start_hour, interval_hours):
         hours = []
@@ -81,13 +88,19 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
         # Her hedefin kendi interval_minutes değerine göre tam vaktinde çalışması için
         # her 1 dakikada bir kontrol eden genel bir görev ekliyoruz. (cron minute='*')
 
-        # Remove existing job if any
+        # Remove existing jobs if any
         if scheduler.get_job('incremental_scrape_job'):
             scheduler.remove_job('incremental_scrape_job')
+        if scheduler.get_job('daily_verification_job'):
+            scheduler.remove_job('daily_verification_job')
 
         # Add polling job (every minute)
         scheduler.add_job(locked_scheduled_scrape, 'cron', minute='*', id='incremental_scrape_job')
-        print(f"Scheduler updated: Polling for due targets every minute.", flush=True)
+
+        # Add daily verification job (every day at 00:05)
+        scheduler.add_job(locked_daily_verification, 'cron', hour=0, minute=5, id='daily_verification_job')
+
+        print(f"Scheduler updated: Polling for due targets every minute. Daily verification set to 00:05.", flush=True)
 
     # Initial apply
     apply_scheduler_settings()

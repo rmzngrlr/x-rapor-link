@@ -207,3 +207,101 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
 if __name__ == '__main__':
     # Can run this manually to test
     run_incremental_scraping()
+
+def run_daily_verification():
+    """
+    Her gece 00:05'te çalışacak doğrulama görevi.
+    Sadece dünkü 24 saatlik zaman dilimini kapsayan tweetleri çeker,
+    INSERT IGNORE mantığıyla sadece eksik olanları ekler.
+    Bu işlem target_schedule zamanlamasını bozmaz.
+    """
+    auth_user, auth_pass = load_auth_credentials()
+
+    if not auth_user or not auth_pass:
+        return
+
+    conn = get_db_connection()
+    if not conn:
+        return
+
+    targets = []
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM targets")
+            targets = cursor.fetchall()
+    except Exception as e:
+        print(f"Failed to fetch targets for daily verification: {e}")
+        conn.close()
+        return
+
+    if not targets:
+        conn.close()
+        return
+
+    # Dünün tarihi
+    now = datetime.now()
+    yesterday_start = datetime(now.year, now.month, now.day) - timedelta(days=1)
+    yesterday_end = datetime(now.year, now.month, now.day) - timedelta(seconds=1)
+
+    print(f"[{datetime.now()}] Starting daily verification job... Fetching data between {yesterday_start} and {yesterday_end} (Targets: {len(targets)})")
+
+    for target in targets:
+        target_id = target['id']
+        target_name = target['target_name']
+        target_type = target['target_type']
+
+        print(f"Verifying target: {target_name} ({target_type})")
+
+        scrape_mode_param = 'profile' if target_type == 'user' else 'list'
+
+        try:
+            stats = run_process(
+                username=auth_user,
+                password=auth_pass,
+                target_username=target_name,
+                start_date_str=None,
+                end_date_str=None,
+                start_datetime_obj=yesterday_start,
+                end_datetime_obj=yesterday_end,
+                scrape_mode=scrape_mode_param,
+                only_replies=False,
+                include_retweets=False,
+                only_retweets=False,
+                skip_excel=True
+            )
+
+            if stats and stats.get('raw_data'):
+                raw_data = stats['raw_data']
+                new_tweets_count = 0
+
+                with conn.cursor() as cursor:
+                    for item in raw_data:
+                        tweet_date = item['Date']
+                        link = item['Link']
+                        username = item.get('Username', '')
+
+                        if isinstance(tweet_date, str):
+                            try:
+                                tweet_date = datetime.strptime(tweet_date, "%Y-%m-%d %H:%M:%S")
+                            except ValueError:
+                                pass
+
+                        try:
+                            cursor.execute("""
+                                INSERT IGNORE INTO tweets (target_id, tweet_date, link, username)
+                                VALUES (%s, %s, %s, %s)
+                            """, (target_id, tweet_date, link, username))
+                            if cursor.rowcount > 0:
+                                new_tweets_count += 1
+                        except Exception as e:
+                            print(f"    Error inserting missing tweet {link}: {e}")
+                conn.commit()
+                print(f"  Verification completed for {target_name}: {new_tweets_count} missing tweets recovered.")
+            else:
+                print(f"  Verification completed for {target_name}: 0 missing tweets found.")
+
+        except Exception as e:
+            print(f"Error verifying target {target_name}: {e}")
+
+    conn.close()
+    print(f"[{datetime.now()}] Daily verification job finished.")
