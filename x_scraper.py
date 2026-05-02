@@ -131,6 +131,7 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-infobars")
+        options.add_argument("--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling")
         try:
             DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir)
              # Ensure consistent window size and Force Focus
@@ -160,6 +161,7 @@ def get_or_create_driver(username, password):
                         new_options.add_argument("--disable-backgrounding-occluded-windows")
                         new_options.add_argument("--disable-renderer-backgrounding")
                         new_options.add_argument("--disable-infobars")
+                        new_options.add_argument("--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling")
 
                         DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
                         try:
@@ -605,6 +607,15 @@ def get_reply_info(article):
         return False, None
 
 def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
+    # Force window to the front
+    try:
+        driver.minimize_window()
+        time.sleep(0.5)
+        driver.maximize_window()
+        driver.switch_to.window(driver.current_window_handle)
+    except:
+        pass
+
     if scrape_mode == 'list':
         profile_url = target_username
         clean_target_username = None
@@ -634,13 +645,26 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
     except Exception as e:
         pass
 
+    # Inject JavaScript to override visibility state
+    try:
+        driver.execute_script("""
+            Object.defineProperty(document, 'visibilityState', {
+                get: function() { return 'visible'; }
+            });
+            Object.defineProperty(document, 'hidden', {
+                get: function() { return false; }
+            });
+        """)
+    except:
+        pass
+
     collected_links = set()
     collected_data = []
 
     log_debug(f"{start_datetime} ile {end_datetime} arasındaki tweetler toplanıyor...")
 
-    max_wait_time = 2.0
-    max_stuck_retries = 15
+    max_wait_time = 3.0 # Increased from 2.0 to give more time for background loading
+    max_stuck_retries = 20 # Increased from 15 to tolerate occluded slow rendering
     
     keep_scrolling = True
     consecutive_old_tweets = 0
@@ -803,10 +827,10 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
                 pass
 
         scroll_step = driver.execute_script("return window.innerHeight") * 0.85
-        driver.execute_script(f"window.scrollBy(0, {scroll_step});")
+        driver.execute_script(f"window.focus(); window.scrollBy(0, {scroll_step});")
         
         start_wait = time.time()
-        while time.time() - start_wait < max_wait_time:
+        while time.time() - start_wait < max_wait_time + 1.0: # Add 1s tolerance for background
             time.sleep(0.2)
             try:
                 current_articles = driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
