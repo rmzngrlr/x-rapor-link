@@ -136,8 +136,6 @@ def get_or_create_driver(username, password):
             DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=True)
              # Ensure consistent window size and Force Focus
             try:
-                DRIVER.minimize_window()
-                time.sleep(0.5)
                 DRIVER.maximize_window()
                 DRIVER.set_window_size(1920, 1080) 
             except:
@@ -165,8 +163,6 @@ def get_or_create_driver(username, password):
 
                         DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version, use_subprocess=True)
                         try:
-                            DRIVER.minimize_window()
-                            time.sleep(0.5)
                             DRIVER.maximize_window()
                             DRIVER.set_window_size(1920, 1080)
                         except:
@@ -627,15 +623,6 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
         log_debug("Zaten hedef sayfadasınız. Tarama başlatılıyor...")
         time.sleep(2)
 
-    # Tarayıcıyı işletim sistemi seviyesinde zorla öne getir
-    try:
-        driver.switch_to.window(driver.current_window_handle)
-        driver.minimize_window()
-        time.sleep(0.5)
-        driver.maximize_window()
-    except Exception as e:
-        pass
-
     try:
         driver.execute_script("""
             Object.defineProperty(document, 'hidden', {get: function() { return false; }, configurable: true});
@@ -918,6 +905,13 @@ def run_process(username, password, target_username, start_date_str, end_date_st
     if not driver:
         log("Hata: Sürücü başlatılamadı veya giriş yapılamadı.")
         return None
+
+    try:
+        # Switch to window and maximize to ensure it's front and active
+        driver.switch_to.window(driver.current_window_handle)
+        driver.maximize_window()
+    except Exception as e:
+        pass
 
     try:
         targets = [t.strip() for t in target_username.split(',') if t.strip()]
