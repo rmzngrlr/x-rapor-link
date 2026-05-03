@@ -134,9 +134,8 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-dev-shm-usage")
         try:
             DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=True)
-             # Ensure consistent window size and Force Focus
+             # Ensure consistent window size
             try:
-                DRIVER.maximize_window()
                 DRIVER.set_window_size(1920, 1080) 
             except:
                 pass
@@ -163,7 +162,6 @@ def get_or_create_driver(username, password):
 
                         DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version, use_subprocess=True)
                         try:
-                            DRIVER.maximize_window()
                             DRIVER.set_window_size(1920, 1080)
                         except:
                             pass
@@ -907,9 +905,22 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         return None
 
     try:
-        # Switch to window and maximize to ensure it's front and active
+        # Switch to window to ensure it's active
         driver.switch_to.window(driver.current_window_handle)
-        driver.maximize_window()
+
+        # Ekran boyutlarını JS ile al
+        screen_width = driver.execute_script("return window.screen.availWidth;")
+        screen_height = driver.execute_script("return window.screen.availHeight;")
+
+        if screen_width and screen_height:
+            half_width = int(screen_width / 2)
+            # Pencereyi sağ tarafa daya (X = yarı genişlik, Y = 0)
+            driver.set_window_position(half_width, 0)
+            # Pencere boyutunu ayarla (Genişlik = yarı genişlik, Yükseklik = tam yükseklik)
+            driver.set_window_size(half_width, screen_height)
+        else:
+            # Yedek plan: Eğer JS boyutu alamazsa sadece maximize et
+            driver.maximize_window()
     except Exception as e:
         pass
 
