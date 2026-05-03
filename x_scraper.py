@@ -627,6 +627,15 @@ def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_
         log_debug("Zaten hedef sayfadasınız. Tarama başlatılıyor...")
         time.sleep(2)
 
+    # Tarayıcıyı işletim sistemi seviyesinde zorla öne getir
+    try:
+        driver.switch_to.window(driver.current_window_handle)
+        driver.minimize_window()
+        time.sleep(0.5)
+        driver.maximize_window()
+    except Exception as e:
+        pass
+
     try:
         driver.execute_script("""
             Object.defineProperty(document, 'hidden', {get: function() { return false; }, configurable: true});
