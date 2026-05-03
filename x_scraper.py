@@ -909,19 +909,8 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         # Switch to window to ensure it's active
         driver.switch_to.window(driver.current_window_handle)
 
-        # Ekran boyutlarını JS ile al
-        screen_width = driver.execute_script("return window.screen.availWidth;")
-        screen_height = driver.execute_script("return window.screen.availHeight;")
-
-        if screen_width and screen_height:
-            half_width = int(screen_width / 2)
-            # Pencereyi sağ tarafa daya (X = yarı genişlik, Y = 0)
-            driver.set_window_position(half_width, 0)
-            # Pencere boyutunu ayarla (Genişlik = yarı genişlik, Yükseklik = tam yükseklik)
-            driver.set_window_size(half_width, screen_height)
-        else:
-            # Yedek plan: Eğer JS boyutu alamazsa sadece maximize et
-            driver.maximize_window()
+        # Pencereyi her zaman tam ekran (maximize) yap
+        driver.maximize_window()
 
         # Ubuntu'da pencereyi "Her Zaman Üstte" (Always on Top) yapmak için wmctrl kullanımı
         # ":ACTIVE:" parametresi o an odaklanmış olan pencereyi (ki switch_to.window ile odakladık) hedefler.
