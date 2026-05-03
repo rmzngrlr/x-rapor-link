@@ -4,6 +4,7 @@ import getpass
 import random
 import os
 import re
+import subprocess
 from datetime import datetime, timedelta
 from dateutil import parser
 
@@ -921,6 +922,14 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         else:
             # Yedek plan: Eğer JS boyutu alamazsa sadece maximize et
             driver.maximize_window()
+
+        # Ubuntu'da pencereyi "Her Zaman Üstte" (Always on Top) yapmak için wmctrl kullanımı
+        # ":ACTIVE:" parametresi o an odaklanmış olan pencereyi (ki switch_to.window ile odakladık) hedefler.
+        try:
+            subprocess.run(["wmctrl", "-r", ":ACTIVE:", "-b", "add,above"], check=False)
+        except Exception as wm_e:
+            log_debug(f"wmctrl komutu çalıştırılamadı (kurulu olmayabilir): {wm_e}")
+
     except Exception as e:
         pass
 
