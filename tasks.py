@@ -3,13 +3,31 @@ import os
 from datetime import datetime, timedelta
 from db import get_db_connection
 from x_scraper import run_process, CONFIG_FILE
+import threading
+
+_cached_credentials = None
+_last_config_mtime = 0
+_config_lock = threading.Lock()
 
 def load_auth_credentials():
+    global _cached_credentials, _last_config_mtime
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                cfg = json.load(f)
-                return cfg.get("auth_username", ""), cfg.get("auth_password", "")
+            mtime = os.path.getmtime(CONFIG_FILE)
+            # Quick check without lock for the common case
+            if _cached_credentials is not None and mtime <= _last_config_mtime:
+                return _cached_credentials
+
+            with _config_lock:
+                # Re-check inside lock
+                if _cached_credentials is not None and mtime <= _last_config_mtime:
+                    return _cached_credentials
+
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+                    _cached_credentials = (cfg.get("auth_username", ""), cfg.get("auth_password", ""))
+                    _last_config_mtime = mtime
+                return _cached_credentials
         except:
             pass
     return "", ""

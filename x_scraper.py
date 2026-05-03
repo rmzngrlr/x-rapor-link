@@ -131,9 +131,13 @@ def get_or_create_driver(username, password):
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-infobars")
+
+        options.add_argument("--disable-dev-shm-usage")
+
         options.add_argument("--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling")
+
         try:
-            DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir)
+            DRIVER = uc.Chrome(options=options, user_data_dir=user_data_dir, use_subprocess=True)
              # Ensure consistent window size and Force Focus
             try:
                 DRIVER.minimize_window()
@@ -161,9 +165,13 @@ def get_or_create_driver(username, password):
                         new_options.add_argument("--disable-backgrounding-occluded-windows")
                         new_options.add_argument("--disable-renderer-backgrounding")
                         new_options.add_argument("--disable-infobars")
+
+                        new_options.add_argument("--disable-dev-shm-usage")
+
                         new_options.add_argument("--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling")
 
-                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version)
+
+                        DRIVER = uc.Chrome(options=new_options, user_data_dir=user_data_dir, version_main=major_version, use_subprocess=True)
                         try:
                             DRIVER.minimize_window()
                             time.sleep(0.5)
