@@ -20,6 +20,7 @@
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-success btn-sm text-nowrap w-100 w-lg-auto text-center">Özel Tarama</a>
                     <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 d-flex w-100 w-lg-auto" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
                         <button type="submit" class="btn btn-warning btn-sm text-nowrap w-100">Tümünü Tara</button>
                     </form>
