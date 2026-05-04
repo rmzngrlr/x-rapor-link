@@ -34,7 +34,7 @@
     <div class="modal fade" id="editIntervalModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form id="editIntervalForm" method="POST">
+                <form id="editIntervalForm" method="POST" enctype="multipart/form-data">
                     <div class="modal-header">
                         <h5 class="modal-title">Tarama Sıklığını Düzenle</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -48,6 +48,11 @@
                         <div class="mb-3">
                             <label class="form-label">Tarama Sıklığı (Dakika)</label>
                             <input type="number" name="scrape_interval_minutes" id="editIntervalInput" class="form-control" min="1" required>
+                        </div>
+                        <div class="mb-3" id="excelUploadContainer" style="display: none;">
+                            <label class="form-label">Excel'den Geçmiş Veri Yükle (Opsiyonel)</label>
+                            <input type="file" name="excel_file" id="editExcelInput" class="form-control" accept=".xlsx, .xls">
+                            <small class="text-muted">Sadece bu kullanıcıya ait (tarih, link, kullanıcı adı) formatındaki excel dosyası kabul edilir. Veritabanında olmayan kayıtlar eklenir.</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -187,6 +192,7 @@
                                             data-bs-toggle="modal"
                                             data-bs-target="#editIntervalModal"
                                             data-target-id="{{ target.id }}"
+                                            data-target-type="{{ target.target_type }}"
                                             data-interval="{{ target.scrape_interval_minutes or 60 }}">
                                         Düzenle
                                     </button>
@@ -212,14 +218,26 @@
             var editBtns = document.querySelectorAll('.edit-interval-btn');
             var form = document.getElementById('editIntervalForm');
             var input = document.getElementById('editIntervalInput');
+            var excelUploadContainer = document.getElementById('excelUploadContainer');
+            var editExcelInput = document.getElementById('editExcelInput');
 
             editBtns.forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     var targetId = this.getAttribute('data-target-id');
                     var interval = this.getAttribute('data-interval');
+                    var targetType = this.getAttribute('data-target-type');
                     input.value = interval;
                     // Reset next_scrape_at input
                     document.getElementById('editNextScrapeInput').value = '';
+
+                    // Reset and toggle excel upload input
+                    editExcelInput.value = '';
+                    if (targetType === 'user') {
+                        excelUploadContainer.style.display = 'block';
+                    } else {
+                        excelUploadContainer.style.display = 'none';
+                    }
+
                     // Update form action with dynamic target ID
                     form.action = '/admin/target/edit_interval/' + targetId;
                 });

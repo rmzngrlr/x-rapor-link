@@ -9,6 +9,7 @@ import io
 import time
 import logging
 from datetime import datetime, timedelta
+import pandas as pd
 import x_scraper
 from x_scraper import run_process, CONFIG_FILE, request_stop
 from db import init_db, get_db_connection
@@ -439,6 +440,7 @@ def admin_add_target():
 def admin_edit_target_interval(target_id):
     scrape_interval_minutes = request.form.get('scrape_interval_minutes', type=int)
     next_scrape_time_str = request.form.get('next_scrape_time')
+    excel_file = request.files.get('excel_file')
 
     next_scrape_at = parse_next_scrape_time(next_scrape_time_str)
 
@@ -447,6 +449,75 @@ def admin_edit_target_interval(target_id):
         if conn:
             try:
                 with conn.cursor() as cursor:
+                    cursor.execute("SELECT target_name, target_type FROM targets WHERE id = %s", (target_id,))
+                    target = cursor.fetchone()
+                    if not target:
+                        flash('Hedef bulunamadı.', 'danger')
+                        return redirect(url_for('admin_dashboard'))
+
+                    target_name = target['target_name']
+                    target_type = target['target_type']
+
+                    if excel_file and excel_file.filename:
+                        if target_type == 'list':
+                            flash('Liste tipi hedefler için Excel yüklemesi desteklenmemektedir.', 'danger')
+                            return redirect(url_for('admin_dashboard'))
+
+                        try:
+                            df = pd.read_excel(excel_file)
+                            if not all(col in df.columns for col in ['Date', 'Link', 'Username']):
+                                flash('Yüklenen Excel dosyasında Date, Link ve Username sütunları eksik.', 'danger')
+                                return redirect(url_for('admin_dashboard'))
+
+                            # Kullanıcı adını doğrula (Excel'de hedefin adı en az 1 kere var mı)
+                            df['Username'] = df['Username'].astype(str)
+                            clean_target_name = target_name.replace('@', '').lower().strip()
+                            clean_usernames = df['Username'].str.replace('@', '').str.lower().str.strip()
+
+                            if not (clean_usernames == clean_target_name).any():
+                                flash(f'Yüklenen Excel dosyasında hedef kullanıcı "{target_name}" ile eşleşen bir Username bulunamadı.', 'danger')
+                                return redirect(url_for('admin_dashboard'))
+
+                            new_tweets_added = 0
+                            for index, row in df.iterrows():
+                                tweet_date = row['Date']
+                                link = row['Link']
+                                username = row['Username']
+
+                                if pd.isna(link) or pd.isna(tweet_date):
+                                    continue
+
+                                if isinstance(tweet_date, str):
+                                    try:
+                                        tweet_date = datetime.strptime(tweet_date, "%Y-%m-%d %H:%M:%S")
+                                    except ValueError:
+                                        try:
+                                            # handle other possible formats if necessary, or pass
+                                            tweet_date = pd.to_datetime(tweet_date).to_pydatetime()
+                                        except:
+                                            pass
+
+                                # Sadece datetime olanları veya parse edilebilenleri ekle
+                                if pd.notna(tweet_date):
+                                    try:
+                                        cursor.execute("""
+                                            INSERT IGNORE INTO tweets (target_id, tweet_date, link, username)
+                                            VALUES (%s, %s, %s, %s)
+                                        """, (target_id, tweet_date, str(link), str(username)))
+                                        if cursor.rowcount > 0:
+                                            new_tweets_added += 1
+                                    except Exception as e:
+                                        print(f"Excel import error for link {link}: {e}")
+
+                            conn.commit()
+                            flash(f'Tarama sıklığı güncellendi ve Excel dosyasından {new_tweets_added} yeni kayıt eklendi.', 'success')
+
+                        except Exception as e:
+                            flash(f'Excel işlenirken hata oluştu: {e}', 'danger')
+                            return redirect(url_for('admin_dashboard'))
+                    else:
+                        flash('Tarama sıklığı/zamanı başarıyla güncellendi.', 'success')
+
                     if next_scrape_at:
                         cursor.execute(
                             "UPDATE targets SET scrape_interval_minutes = %s, next_scrape_at = %s WHERE id = %s",
@@ -458,7 +529,6 @@ def admin_edit_target_interval(target_id):
                             (scrape_interval_minutes, target_id)
                         )
                 conn.commit()
-                flash('Tarama sıklığı/zamanı başarıyla güncellendi.', 'success')
             except Exception as e:
                 flash(f'Hata oluştu: {e}', 'danger')
             finally:
