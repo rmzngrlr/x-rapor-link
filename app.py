@@ -54,6 +54,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from tasks import run_incremental_scraping, run_daily_verification
 import atexit
 
+# Global storage
+JOBS = {}
+TEMP_FILES = {}
+
+# Job Queue System
+JOB_QUEUE = queue.Queue()
+IS_WORKER_BUSY = False
+
 # Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
     scheduler = BackgroundScheduler(daemon=True)
@@ -61,18 +69,18 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
     MANUAL_SCRAPE_LOCK = threading.Lock()
 
     def locked_scheduled_scrape():
-        if not MANUAL_SCRAPE_LOCK.locked():
+        if not MANUAL_SCRAPE_LOCK.locked() and not IS_WORKER_BUSY:
             with MANUAL_SCRAPE_LOCK:
                 run_incremental_scraping()
         else:
-            log_debug("Zamanlanmış tarama atlandı, çünkü manuel bir tarama devam ediyor.")
+            log_debug("Zamanlanmış tarama atlandı, çünkü aktif bir manuel tarama veya ana sayfa işi devam ediyor.")
 
     def locked_daily_verification():
-        if not MANUAL_SCRAPE_LOCK.locked():
+        if not MANUAL_SCRAPE_LOCK.locked() and not IS_WORKER_BUSY:
             with MANUAL_SCRAPE_LOCK:
                 run_daily_verification()
         else:
-            log_debug("Günlük doğrulama atlandı, çünkü manuel bir tarama devam ediyor.")
+            log_debug("Günlük doğrulama atlandı, çünkü aktif bir manuel tarama veya ana sayfa işi devam ediyor.")
 
     def generate_cron_hours(start_hour, interval_hours):
         hours = []
@@ -112,14 +120,6 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
 
     # Uygulama kapandığında scheduler'ı durdur
     atexit.register(lambda: scheduler.shutdown(wait=False))
-
-# Global storage
-JOBS = {}
-TEMP_FILES = {}
-
-# Job Queue System
-JOB_QUEUE = queue.Queue()
-IS_WORKER_BUSY = False
 
 def format_duration(seconds):
     """Saniyeyi okunabilir süre formatına çevirir (X dakika Y saniye)."""
@@ -269,9 +269,9 @@ def admin_logout():
 @app.route('/admin/trigger_scrape', methods=['POST'])
 @admin_required
 def admin_trigger_scrape():
-    global MANUAL_SCRAPE_LOCK
-    if MANUAL_SCRAPE_LOCK.locked():
-        flash('Şu anda arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
+    global MANUAL_SCRAPE_LOCK, IS_WORKER_BUSY
+    if MANUAL_SCRAPE_LOCK.locked() or IS_WORKER_BUSY:
+        flash('Şu anda aktif veya arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
         return redirect(url_for('admin_dashboard'))
 
     def locked_scrape():
@@ -287,9 +287,9 @@ def admin_trigger_scrape():
 @app.route('/admin/trigger_scrape/<int:target_id>', methods=['POST'])
 @admin_required
 def admin_trigger_scrape_target(target_id):
-    global MANUAL_SCRAPE_LOCK
-    if MANUAL_SCRAPE_LOCK.locked():
-        flash('Şu anda arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
+    global MANUAL_SCRAPE_LOCK, IS_WORKER_BUSY
+    if MANUAL_SCRAPE_LOCK.locked() or IS_WORKER_BUSY:
+        flash('Şu anda aktif veya arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
         # Try to redirect back to target view if possible
         referer = request.headers.get("Referer")
         if referer and "target/" in referer:
