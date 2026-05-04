@@ -6,3 +6,5 @@ python-dateutil
 pymysql
 APScheduler
 cryptography
+pandas
+openpyxl
