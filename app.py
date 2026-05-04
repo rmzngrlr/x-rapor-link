@@ -65,22 +65,29 @@ IS_WORKER_BUSY = False
 # Yalnızca ana süreçte (main thread) çalışmasını sağlamak için basit bir kontrol
 if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
     scheduler = BackgroundScheduler(daemon=True)
-    # Concurrency lock for manual triggers
-    MANUAL_SCRAPE_LOCK = threading.Lock()
 
-    def locked_scheduled_scrape():
-        if not MANUAL_SCRAPE_LOCK.locked() and not IS_WORKER_BUSY:
-            with MANUAL_SCRAPE_LOCK:
-                run_incremental_scraping()
-        else:
-            log_debug("Zamanlanmış tarama atlandı, çünkü aktif bir manuel tarama veya ana sayfa işi devam ediyor.")
+    def is_admin_scrape_in_queue(task_name):
+        # Basitçe kuyrukta aynı görev tipinden var mı diye bakar (Kuyruk boyutunu bozmadan, approximate)
+        with JOB_QUEUE.mutex:
+            for item in JOB_QUEUE.queue:
+                job_kwargs = item[1]
+                if job_kwargs.get('job_type') == 'admin_scrape' and job_kwargs.get('task_name') == task_name:
+                    return True
+        return False
 
-    def locked_daily_verification():
-        if not MANUAL_SCRAPE_LOCK.locked() and not IS_WORKER_BUSY:
-            with MANUAL_SCRAPE_LOCK:
-                run_daily_verification()
+    def queue_scheduled_scrape():
+        if not is_admin_scrape_in_queue('incremental'):
+            log_debug("Zamanlanmış artımlı tarama görevi kuyruğa ekleniyor.")
+            JOB_QUEUE.put((str(uuid.uuid4()), {'job_type': 'admin_scrape', 'task_name': 'incremental'}))
         else:
-            log_debug("Günlük doğrulama atlandı, çünkü aktif bir manuel tarama veya ana sayfa işi devam ediyor.")
+            log_debug("Zamanlanmış artımlı tarama görevi zaten kuyrukta.")
+
+    def queue_daily_verification():
+        if not is_admin_scrape_in_queue('daily_verification'):
+            log_debug("Günlük doğrulama görevi kuyruğa ekleniyor.")
+            JOB_QUEUE.put((str(uuid.uuid4()), {'job_type': 'admin_scrape', 'task_name': 'daily_verification'}))
+        else:
+            log_debug("Günlük doğrulama görevi zaten kuyrukta.")
 
     def generate_cron_hours(start_hour, interval_hours):
         hours = []
@@ -104,10 +111,10 @@ if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
             scheduler.remove_job('daily_verification_job')
 
         # Add polling job (every minute)
-        scheduler.add_job(locked_scheduled_scrape, 'cron', minute='*', id='incremental_scrape_job')
+        scheduler.add_job(queue_scheduled_scrape, 'cron', minute='*', id='incremental_scrape_job')
 
         # Add daily verification job (every day at 00:05)
-        scheduler.add_job(locked_daily_verification, 'cron', hour=0, minute=5, id='daily_verification_job')
+        scheduler.add_job(queue_daily_verification, 'cron', hour=0, minute=5, id='daily_verification_job')
 
         print(f"Scheduler updated: Polling for due targets every minute. Daily verification set to 00:05.", flush=True)
 
@@ -186,8 +193,24 @@ def worker_loop():
                         print(f"İş {job_id} ekran görüntüsü hatası: {node_err}")
                         raise node_err
                 
+                elif job_type == 'admin_scrape':
+                    # Zamanlanmış veya panelden manuel tetiklenmiş artımlı admin taraması
+                    task_name = kwargs.get('task_name')
+                    log_debug(f"İş {job_id}: Yönetici paneli tarama görevi başlatılıyor ({task_name})...")
+                    if task_name == 'daily_verification':
+                        run_daily_verification()
+                    else:
+                        specific_target_id = kwargs.get('target_id')
+                        force_scrape = kwargs.get('force_scrape', False)
+                        run_incremental_scraping(specific_target_id=specific_target_id, force_scrape=force_scrape)
+
+                    if job_id in JOBS:
+                        JOBS[job_id]['status'] = 'completed'
+                        JOBS[job_id]['result'] = {"job_type": "admin_scrape"}
+                    log_debug(f"İş {job_id} tamamlandı (admin_scrape).")
+
                 else:
-                    # Normal scrape mode
+                    # Normal scrape mode (Ana sayfa üzerinden tetiklenenler)
                     # This now uses the persistent driver in x_scraper
                     stats = run_process(**kwargs)
                     
@@ -197,16 +220,19 @@ def worker_loop():
                             stats['time'] = format_duration(stats['time'])
 
                         stats['job_type'] = 'scrape'
-                        JOBS[job_id]['status'] = 'completed'
-                        JOBS[job_id]['result'] = stats
+                        if job_id in JOBS:
+                            JOBS[job_id]['status'] = 'completed'
+                            JOBS[job_id]['result'] = stats
                         log_debug(f"İş {job_id} tamamlandı.")
                     else:
-                        JOBS[job_id]['status'] = 'failed'
-                        JOBS[job_id]['error'] = "İşlem başarısız oldu (Giriş hatası veya veri yok)."
+                        if job_id in JOBS:
+                            JOBS[job_id]['status'] = 'failed'
+                            JOBS[job_id]['error'] = "İşlem başarısız oldu (Giriş hatası veya veri yok)."
                         log_debug(f"İş {job_id} başarısız oldu (istatistik yok).")
             except Exception as e:
-                JOBS[job_id]['status'] = 'failed'
-                JOBS[job_id]['error'] = str(e)
+                if job_id in JOBS:
+                    JOBS[job_id]['status'] = 'failed'
+                    JOBS[job_id]['error'] = str(e)
                 print(f"İş {job_id} hatası: {e}", flush=True)
             finally:
                 IS_WORKER_BUSY = False
@@ -269,40 +295,28 @@ def admin_logout():
 @app.route('/admin/trigger_scrape', methods=['POST'])
 @admin_required
 def admin_trigger_scrape():
-    global MANUAL_SCRAPE_LOCK, IS_WORKER_BUSY
-    if MANUAL_SCRAPE_LOCK.locked() or IS_WORKER_BUSY:
-        flash('Şu anda aktif veya arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
-        return redirect(url_for('admin_dashboard'))
+    job_id = str(uuid.uuid4())
+    JOB_QUEUE.put((job_id, {
+        'job_type': 'admin_scrape',
+        'task_name': 'incremental_all',
+        'force_scrape': True
+    }))
 
-    def locked_scrape():
-        with MANUAL_SCRAPE_LOCK:
-            run_incremental_scraping(force_scrape=True)
-
-    # Run the scraping task in a separate background thread so it doesn't block the UI
-    scrape_thread = threading.Thread(target=locked_scrape, daemon=True)
-    scrape_thread.start()
-    flash('Arka planda tarama işlemi başlatıldı! (Tüm Hedefler)', 'success')
+    flash('Arka planda tüm hedefler için tarama görevi kuyruğa eklendi. Sistem uygun olduğunda başlayacaktır.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/trigger_scrape/<int:target_id>', methods=['POST'])
 @admin_required
 def admin_trigger_scrape_target(target_id):
-    global MANUAL_SCRAPE_LOCK, IS_WORKER_BUSY
-    if MANUAL_SCRAPE_LOCK.locked() or IS_WORKER_BUSY:
-        flash('Şu anda aktif veya arka planda devam eden bir tarama işlemi var. Lütfen bitmesini bekleyin.', 'warning')
-        # Try to redirect back to target view if possible
-        referer = request.headers.get("Referer")
-        if referer and "target/" in referer:
-            return redirect(url_for('admin_view_target', target_id=target_id))
-        return redirect(url_for('admin_dashboard'))
+    job_id = str(uuid.uuid4())
+    JOB_QUEUE.put((job_id, {
+        'job_type': 'admin_scrape',
+        'task_name': f'incremental_target_{target_id}',
+        'target_id': target_id,
+        'force_scrape': True
+    }))
 
-    def locked_scrape_target():
-        with MANUAL_SCRAPE_LOCK:
-            run_incremental_scraping(specific_target_id=target_id, force_scrape=True)
-
-    scrape_thread = threading.Thread(target=locked_scrape_target, daemon=True)
-    scrape_thread.start()
-    flash('Bu hedef için tarama arka planda başlatıldı!', 'success')
+    flash('Bu hedef için tarama görevi kuyruğa eklendi. Sistem uygun olduğunda başlayacaktır.', 'success')
 
     referer = request.headers.get("Referer")
     if referer and "target/" in referer:
