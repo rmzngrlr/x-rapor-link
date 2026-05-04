@@ -168,7 +168,17 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                     else:
                         # Otomatik taramaysa veya next_scrape_at boşsa, yeni tarama zamanını hesapla.
                         interval_minutes = target.get('scrape_interval_minutes', 60) or 60
-                        next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+                        old_next_scrape = target.get('next_scrape_at')
+
+                        if old_next_scrape:
+                            # Taramaya geç kalınmış olsa bile (kuyruk beklemesi vs), ritmi korumak için
+                            # orijinal planlanan saatin üzerine ekleyerek yeni zamanı bul.
+                            next_scrape_time = old_next_scrape
+                            while next_scrape_time <= current_time:
+                                next_scrape_time += timedelta(minutes=interval_minutes)
+                        else:
+                            next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+
                         cursor.execute("""
                             UPDATE targets
                             SET last_scraped_at = %s,
@@ -188,7 +198,15 @@ def run_incremental_scraping(specific_target_id=None, force_scrape=False):
                         print(f"  Completed {target_name}: 0 new tweets. (Manual scrape, schedule unchanged)")
                     else:
                         interval_minutes = target.get('scrape_interval_minutes', 60) or 60
-                        next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+                        old_next_scrape = target.get('next_scrape_at')
+
+                        if old_next_scrape:
+                            next_scrape_time = old_next_scrape
+                            while next_scrape_time <= current_time:
+                                next_scrape_time += timedelta(minutes=interval_minutes)
+                        else:
+                            next_scrape_time = current_time + timedelta(minutes=interval_minutes)
+
                         cursor.execute("""
                             UPDATE targets
                             SET last_scraped_at = %s,
