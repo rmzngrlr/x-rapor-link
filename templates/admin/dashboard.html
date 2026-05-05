@@ -22,7 +22,7 @@
             </button>
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
-                    <a href="{{ url_for('index') }}" class="btn btn-outline-success btn-sm text-nowrap w-100 w-lg-auto text-center">Özel Tarama</a>
+                    <button type="button" class="btn btn-outline-success btn-sm text-nowrap w-100 w-lg-auto text-center" data-bs-toggle="modal" data-bs-target="#customScrapeModal">Özel Tarama</button>
                     <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 d-flex w-100 w-lg-auto sweet-confirm-form" data-confirm-msg="Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.">
                         <button type="submit" class="btn btn-warning btn-sm text-nowrap w-100">Tümünü Tara</button>
                     </form>
@@ -63,6 +63,21 @@
                         <button type="submit" class="btn btn-primary">Kaydet</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Scrape Modal (iframe) -->
+    <div class="modal fade" id="customScrapeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Özel Tarama (Manuel)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body p-0" style="height: 80vh;">
+                    <iframe src="{{ url_for('index') }}" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
             </div>
         </div>
     </div>
