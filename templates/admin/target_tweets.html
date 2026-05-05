@@ -65,14 +65,10 @@
                         <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu hedefi taramak istediğinize emin misiniz?">
                             <button type="submit" class="btn btn-warning btn-sm px-2">Şimdi Tara</button>
                         </form>
-                        <button type="button" class="btn btn-secondary btn-sm px-2" onclick="selectAll()">Tümünü Seç</button>
-                        <button type="button" class="btn btn-success btn-sm px-2" onclick="copySelected()">Kopyala</button>
-                        <button type="button" class="btn btn-info btn-sm px-2 text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre</button>
+                        <button type="button" class="btn btn-success btn-sm px-2" onclick="copySelected()">Seçilenleri Kopyala</button>
+                        <button type="button" class="btn btn-info btn-sm px-2 text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Seç</button>
                         <button type="button" class="btn btn-primary btn-sm px-2" onclick="copyFromReferenceLink()">Linkten İtibaren Kopyala</button>
-                        <button type="button" class="btn btn-danger btn-sm px-2" onclick="deleteSelected()">Sil</button>
-                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?">
-                            <button type="submit" class="btn btn-danger btn-sm px-2 fw-bold">Tümünü Sil</button>
-                        </form>
+                        <button type="button" class="btn btn-danger btn-sm px-2" onclick="deleteSelected()">Seçilenleri Sil</button>
                     </div>
                 </div>
 
