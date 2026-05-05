@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ target.target_name }} - Tweetler</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; overscroll-behavior: none; overflow-x: hidden; }
         .dashboard-container { max-width: 1300px; margin: 30px auto; }
@@ -60,14 +62,14 @@
                         </div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefi taramak istediğinize emin misiniz?');">
+                        <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu hedefi taramak istediğinize emin misiniz?">
                             <button type="submit" class="btn btn-warning btn-sm">Şimdi Tara</button>
                         </form>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll()">Tümünü Seç</button>
                         <button type="button" class="btn btn-success btn-sm" onclick="copySelected()">Seçilenleri Kopyala</button>
                         <button type="button" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#dateFilterModal">Tarihe Göre Seç</button>
                         <button type="button" class="btn btn-danger btn-sm" onclick="deleteSelected()">Seçilenleri Sil</button>
-                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?');">
+                        <form action="{{ url_for('admin_delete_all_target_tweets', target_id=target.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu hedefe ait TÜM tweetleri silmek istediğinize emin misiniz?">
                             <button type="submit" class="btn btn-danger btn-sm fw-bold">Tümünü Sil</button>
                         </form>
                     </div>
@@ -136,7 +138,7 @@
                                 <td>{{ tweet.username }}</td>
                                 <td class="text-wrap"><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
                                 <td class="text-end">
-                                    <form action="{{ url_for('admin_delete_single_tweet', tweet_id=tweet.id) }}" method="POST" class="m-0" onsubmit="return confirm('Bu linki silmek istediğinize emin misiniz?');">
+                                    <form action="{{ url_for('admin_delete_single_tweet', tweet_id=tweet.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu linki silmek istediğinize emin misiniz?">
                                         <input type="hidden" name="target_id" value="{{ target.id }}">
                                         <button type="submit" class="btn btn-outline-danger btn-sm">Sil</button>
                                     </form>
@@ -258,7 +260,11 @@
             if (idx !== -1) {
                 renderDayView(idx);
             } else {
-                alert("Seçtiğiniz tarihe ait toplanmış veri bulunmuyor.");
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Bulunamadı',
+                    text: "Seçtiğiniz tarihe ait toplanmış veri bulunmuyor."
+                });
                 // Revert jump input to currently displayed day
                 document.getElementById('jumpToDate').value = availableDates[currentDateIndex];
             }
@@ -307,13 +313,25 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    alert(linksToCopy.length + " link eskiden yeniye doğru kopyalandı!");
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı!',
+                        text: linksToCopy.length + " link eskiden yeniye doğru kopyalandı!"
+                    });
                 } else {
-                    alert("Kopyalama başarısız oldu (Tarayıcı izin vermedi).");
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Hata',
+                        text: "Kopyalama başarısız oldu (Tarayıcı izin vermedi)."
+                    });
                 }
             } catch (err) {
                 console.error('Kopyalama hatası: ', err);
-                alert("Kopyalama başarısız oldu.");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Hata',
+                    text: "Kopyalama başarısız oldu."
+                });
             }
             document.body.removeChild(textarea);
         }
@@ -321,7 +339,11 @@
         function copySelected() {
             const checkboxes = document.querySelectorAll('.tweet-checkbox:checked');
             if (checkboxes.length === 0) {
-                alert("Lütfen kopyalamak için en az bir link seçin.");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Uyarı',
+                    text: "Lütfen kopyalamak için en az bir link seçin."
+                });
                 return;
             }
             const linksArray = Array.from(checkboxes).map(cb => cb.value);
@@ -371,9 +393,17 @@
             });
 
             if (matchCount === 0) {
-                alert("Seçilen tarih aralığında link bulunamadı.");
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Bilgi',
+                    text: "Seçilen tarih aralığında link bulunamadı."
+                });
             } else {
-                alert(`Seçilen tarih aralığına ait ${matchCount} link işaretlendi. Artık kopyalayabilir veya silebilirsiniz.`);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Seçim Başarılı',
+                    text: `Seçilen tarih aralığına ait ${matchCount} link işaretlendi. Artık kopyalayabilir veya silebilirsiniz.`
+                });
             }
 
             const modalEl = document.getElementById('dateFilterModal');
@@ -423,7 +453,11 @@
             const endVal = document.getElementById('filterEndDate').value;
 
             if (!startVal || !endVal) {
-                alert("Lütfen hem başlangıç hem de bitiş tarihi ve saatini seçin.");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Uyarı',
+                    text: "Lütfen hem başlangıç hem de bitiş tarihi ve saatini seçin."
+                });
                 return;
             }
 
@@ -438,18 +472,58 @@
         function deleteSelected() {
             const checkboxes = document.querySelectorAll('.tweet-checkbox:checked');
             if (checkboxes.length === 0) {
-                alert("Lütfen silmek için en az bir link seçin.");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Uyarı',
+                    text: "Lütfen silmek için en az bir link seçin."
+                });
                 return;
             }
 
-            if (!confirm(`Seçili olan ${checkboxes.length} linki silmek istediğinize emin misiniz?`)) {
-                return;
-            }
-
-            const idsArray = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
-            document.getElementById('deleteSelectedIds').value = idsArray.join(',');
-            document.getElementById('deleteSelectedForm').submit();
+            Swal.fire({
+                title: 'Emin misiniz?',
+                text: `Seçili olan ${checkboxes.length} linki silmek istediğinize emin misiniz?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Evet, Sil!',
+                cancelButtonText: 'İptal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const idsArray = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+                    document.getElementById('deleteSelectedIds').value = idsArray.join(',');
+                    document.getElementById('deleteSelectedForm').submit();
+                }
+            });
         }
+    </script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.all.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var confirmForms = document.querySelectorAll('.sweet-confirm-form');
+            confirmForms.forEach(function(form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var msg = this.getAttribute('data-confirm-msg') || 'Bu işlemi yapmak istediğinize emin misiniz?';
+                    Swal.fire({
+                        title: 'Emin misiniz?',
+                        text: msg,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Evet, Onaylıyorum!',
+                        cancelButtonText: 'İptal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+                    });
+                });
+            });
+        });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
