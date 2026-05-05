@@ -164,20 +164,27 @@
 
                 {% if tweets %}
                 <!-- Pagination Controls -->
-                <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 p-2 bg-light border rounded gap-2">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 p-2 bg-light border rounded gap-3 pagination-controls-wrapper">
                     <button type="button" id="prevDayBtn" class="btn btn-outline-primary btn-sm px-3" onclick="goToDay(-1)">
                         &laquo; <span id="prevDayText">Önceki</span>
                     </button>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="fw-bold" id="currentDayText"></span>
-                        <input type="date" id="jumpToDate" class="form-control form-control-sm ms-2" style="width: 140px;" onchange="jumpToSelectedDate()">
+                    <div class="d-flex flex-column flex-sm-row align-items-center gap-2 text-center">
+                        <span class="fw-bold text-nowrap" id="currentDayText"></span>
+                        <input type="date" id="jumpToDate" class="form-control form-control-sm" style="width: 140px;" onchange="jumpToSelectedDate()">
                     </div>
 
                     <button type="button" id="nextDayBtn" class="btn btn-outline-primary btn-sm px-3" onclick="goToDay(1)">
                         <span id="nextDayText">Sonraki</span> &raquo;
                     </button>
                 </div>
+                <style>
+                    @media (max-width: 767.98px) {
+                        .pagination-controls-wrapper > button {
+                            width: 100% !important;
+                        }
+                    }
+                </style>
                 {% endif %}
             </div>
         </div>
