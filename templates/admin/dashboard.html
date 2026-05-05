@@ -124,7 +124,7 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label mb-1">İlk Tarama Saati (Ops.)</label>
-                            <input type="time" name="next_scrape_time" class="form-control" title="Boş bırakılırsa hemen taranır">
+                            <input type="time" name="next_scrape_time" id="addTargetNextScrapeInput" class="form-control" title="Boş bırakılırsa hemen taranır">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label mb-1">Sıklık (Dakika)</label>
@@ -243,6 +243,16 @@
                 });
             });
 
+            // Add Target Form: Auto-fill next top of the hour
+            var addTargetInput = document.getElementById('addTargetNextScrapeInput');
+            if (addTargetInput) {
+                var nowGlobal = new Date();
+                nowGlobal.setHours(nowGlobal.getHours() + 1);
+                nowGlobal.setMinutes(0);
+                var nextHourStrGlobal = ('0' + nowGlobal.getHours()).slice(-2) + ':00';
+                addTargetInput.value = nextHourStrGlobal;
+            }
+
             var editBtns = document.querySelectorAll('.edit-interval-btn');
             var form = document.getElementById('editIntervalForm');
             var input = document.getElementById('editIntervalInput');
@@ -255,8 +265,13 @@
                     var interval = this.getAttribute('data-interval');
                     var targetType = this.getAttribute('data-target-type');
                     input.value = interval;
-                    // Reset next_scrape_at input
-                    document.getElementById('editNextScrapeInput').value = '';
+
+                    // Calculate next top of the hour
+                    var now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    now.setMinutes(0);
+                    var nextHourStr = ('0' + now.getHours()).slice(-2) + ':00';
+                    document.getElementById('editNextScrapeInput').value = nextHourStr;
 
                     // Reset and toggle excel upload input
                     editExcelInput.value = '';
