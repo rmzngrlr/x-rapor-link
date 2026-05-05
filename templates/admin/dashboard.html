@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>X-RaporLink - Yönetici</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; overscroll-behavior: none; overflow-x: hidden; }
         .dashboard-container { max-width: 1300px; margin: 30px auto; }
@@ -21,7 +23,7 @@
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center ms-auto mt-3 mt-lg-0 gap-2">
                     <a href="{{ url_for('index') }}" class="btn btn-outline-success btn-sm text-nowrap w-100 w-lg-auto text-center">Özel Tarama</a>
-                    <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 d-flex w-100 w-lg-auto" onsubmit="return confirm('Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.');">
+                    <form action="{{ url_for('admin_trigger_scrape') }}" method="POST" class="m-0 d-flex w-100 w-lg-auto sweet-confirm-form" data-confirm-msg="Tüm hedefleri taramak istediğinize emin misiniz? Arka planda çalışacaktır.">
                         <button type="submit" class="btn btn-warning btn-sm text-nowrap w-100">Tümünü Tara</button>
                     </form>
                     <button type="button" class="btn btn-outline-info btn-sm text-nowrap w-100 w-lg-auto" data-bs-toggle="modal" data-bs-target="#settingsModal">Ayarlar</button>
@@ -186,7 +188,7 @@
                                 </td>
                                 <td>{{ target.tweet_count }}</td>
                                 <td class="text-end text-nowrap">
-                                    <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Sadece bu hedefi taramak istediğinize emin misiniz?');">
+                                    <form action="{{ url_for('admin_trigger_scrape_target', target_id=target.id) }}" method="POST" class="d-inline sweet-confirm-form" data-confirm-msg="Sadece bu hedefi taramak istediğinize emin misiniz?">
                                         <button type="submit" class="btn btn-warning btn-sm">Bunu Tara</button>
                                     </form>
                                     <button type="button" class="btn btn-secondary btn-sm edit-interval-btn"
@@ -197,7 +199,7 @@
                                             data-interval="{{ target.scrape_interval_minutes or 60 }}">
                                         Düzenle
                                     </button>
-                                    <form action="{{ url_for('admin_delete_target', target_id=target.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu hedefi ve toplanan tüm tweetlerini silmek istediğinize emin misiniz?');">
+                                    <form action="{{ url_for('admin_delete_target', target_id=target.id) }}" method="POST" class="d-inline sweet-confirm-form" data-confirm-msg="Bu hedefi ve toplanan tüm tweetlerini silmek istediğinize emin misiniz?">
                                         <button type="submit" class="btn btn-danger btn-sm">Sil</button>
                                     </form>
                                 </td>
@@ -214,8 +216,33 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.12/dist/sweetalert2.all.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // SweetAlert2 Form Confirmations
+            var confirmForms = document.querySelectorAll('.sweet-confirm-form');
+            confirmForms.forEach(function(form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var msg = this.getAttribute('data-confirm-msg') || 'Bu işlemi yapmak istediğinize emin misiniz?';
+                    Swal.fire({
+                        title: 'Emin misiniz?',
+                        text: msg,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Evet, Onaylıyorum!',
+                        cancelButtonText: 'İptal'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+                    });
+                });
+            });
+
             var editBtns = document.querySelectorAll('.edit-interval-btn');
             var form = document.getElementById('editIntervalForm');
             var input = document.getElementById('editIntervalInput');
