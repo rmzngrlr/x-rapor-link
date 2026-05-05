@@ -135,7 +135,7 @@
                                 <th style="width: 40px;" class="text-center"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll()"></th>
                                 <th>Tarih</th>
                                 <th>Kullanıcı</th>
-                                <th class="w-100 text-wrap">Link</th>
+                                <th class="w-100 text-wrap" style="min-width: 250px;">Link</th>
                                 <th class="text-end">İşlem</th>
                             </tr>
                         </thead>
@@ -143,9 +143,9 @@
                             {% for tweet in tweets %}
                             <tr data-date-string="{{ tweet.tweet_date.strftime('%Y-%m-%d') }}">
                                 <td class="text-center"><input type="checkbox" class="tweet-checkbox" value="{{ tweet.link }}" data-id="{{ tweet.id }}"></td>
-                                <td>{{ tweet.tweet_date.strftime('%d-%m-%Y %H:%M') }}</td>
-                                <td>{{ tweet.username }}</td>
-                                <td class="text-wrap"><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
+                                <td style="white-space: nowrap;">{{ tweet.tweet_date.strftime('%d-%m-%Y %H:%M') }}</td>
+                                <td style="white-space: nowrap;">{{ tweet.username }}</td>
+                                <td class="text-wrap" style="min-width: 250px;"><a href="{{ tweet.link }}" target="_blank" class="tweet-link">{{ tweet.link }}</a></td>
                                 <td class="text-end">
                                     <form action="{{ url_for('admin_delete_single_tweet', tweet_id=tweet.id) }}" method="POST" class="m-0 sweet-confirm-form" data-confirm-msg="Bu linki silmek istediğinize emin misiniz?">
                                         <input type="hidden" name="target_id" value="{{ target.id }}">
@@ -164,7 +164,7 @@
 
                 {% if tweets %}
                 <!-- Pagination Controls -->
-                <div class="d-flex justify-content-between align-items-center mt-3 p-2 bg-light border rounded">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 p-2 bg-light border rounded gap-2">
                     <button type="button" id="prevDayBtn" class="btn btn-outline-primary btn-sm px-3" onclick="goToDay(-1)">
                         &laquo; <span id="prevDayText">Önceki</span>
                     </button>
