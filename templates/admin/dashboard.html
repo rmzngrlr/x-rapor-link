@@ -255,8 +255,13 @@
                     var interval = this.getAttribute('data-interval');
                     var targetType = this.getAttribute('data-target-type');
                     input.value = interval;
-                    // Reset next_scrape_at input
-                    document.getElementById('editNextScrapeInput').value = '';
+
+                    // Calculate next top of the hour
+                    var now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    now.setMinutes(0);
+                    var nextHourStr = ('0' + now.getHours()).slice(-2) + ':00';
+                    document.getElementById('editNextScrapeInput').value = nextHourStr;
 
                     // Reset and toggle excel upload input
                     editExcelInput.value = '';
