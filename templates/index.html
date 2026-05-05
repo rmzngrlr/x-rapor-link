@@ -10,6 +10,11 @@
     <style>
         html, body { overscroll-behavior: none; }
         body { background-color: #f8f9fa; }
+        /* Iframe compatibility css */
+        body:has(> .container.py-3.iframe-mode) { background-color: white !important; }
+        .iframe-mode .card { box-shadow: none !important; border: none !important; padding: 1rem !important; }
+        .iframe-mode { padding-top: 0 !important; }
+
         .card { border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .form-label { font-weight: 500; }
         .btn-primary { background-color: #0078d7; border: none; }
@@ -60,10 +65,10 @@
 </head>
 <body>
 
-<div class="container py-3">
+<div class="container py-3" id="mainContainer">
     <div class="row justify-content-center">
         <div class="col-md-8 col-lg-5">
-            <div class="text-center mb-3">
+            <div class="text-center mb-3" id="mainTitleContainer">
                 <h3 class="fw-bold">X (Twitter) Link Toplayıcı</h3>
             </div>
 
@@ -206,6 +211,12 @@
 </div>
 
 <script>
+        // Check if inside iframe
+        if (window !== window.parent) {
+            document.getElementById('mainContainer').classList.add('iframe-mode');
+            document.getElementById('mainTitleContainer').style.display = 'none'; // Hide title in iframe since modal has one
+        }
+
     const poetryQuotes = [
         "\"Amerikan rüyası görmüyorum, Amerikan kâbusu görüyorum.\"",
         "\"varsın zındanların uğultusu vursun kulaklarımıza\nyaşamak bizimçün dokunaklı bir şarkı değil ki.\"",
