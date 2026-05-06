@@ -690,13 +690,19 @@ def scrape_tweets_api(driver, target_username, start_datetime, end_datetime, sea
                             legacy = tweet_data['legacy']
                             t_datetime_str = legacy.get('created_at')
                             if not t_datetime_str: continue
-                            t_datetime = parse_datetime(t_datetime_str)
+                            try:
+                                t_datetime = parser.parse(t_datetime_str).replace(tzinfo=None)
+                            except:
+                                continue
 
                             is_retweet_flag = 'retweeted_status_result' in legacy
                             if is_retweet_flag:
-                                t_datetime_str = legacy['retweeted_status_result']['result']['legacy'].get('created_at')
-                                if t_datetime_str:
-                                    t_datetime = parse_datetime(t_datetime_str)
+                                rt_datetime_str = legacy['retweeted_status_result']['result']['legacy'].get('created_at')
+                                if rt_datetime_str:
+                                    try:
+                                        t_datetime = parser.parse(rt_datetime_str).replace(tzinfo=None)
+                                    except:
+                                        pass
 
                             author_username = tweet_data.get('core', {}).get('user_results', {}).get('result', {}).get('legacy', {}).get('screen_name', clean_target_username)
 
