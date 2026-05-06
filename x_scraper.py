@@ -697,7 +697,11 @@ def scrape_tweets_api(driver, target_username, start_datetime, end_datetime, sea
 
                             is_retweet_flag = 'retweeted_status_result' in legacy
                             if is_retweet_flag:
-                                rt_datetime_str = legacy['retweeted_status_result']['result']['legacy'].get('created_at')
+                                rt_result = legacy['retweeted_status_result'].get('result', {})
+                                if rt_result.get('__typename') == 'TweetWithVisibilityResults':
+                                    rt_result = rt_result.get('tweet', {})
+
+                                rt_datetime_str = rt_result.get('legacy', {}).get('created_at')
                                 if rt_datetime_str:
                                     try:
                                         t_datetime = parser.parse(rt_datetime_str).replace(tzinfo=None)
