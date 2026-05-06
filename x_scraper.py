@@ -603,22 +603,155 @@ def get_reply_info(article):
 
 def scrape_tweets_api(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     """
-    A placeholder for the hidden GraphQL API scraping approach.
-    It leverages the existing session cookies from the driver/requests.
+    GraphQL API scraping approach.
     """
     global stop_requested
     collected_links = set()
     collected_data = []
 
-    log_debug(f"API Modu başlatıldı. {target_username} (Test/Placeholder) için {start_datetime} - {end_datetime} arası hedefleniyor.")
+    if scrape_mode == 'list':
+        log_debug("API Modu şu an sadece profil taraması için uygundur. Listeler Selenium ile aranmalıdır.")
+        return collected_data
 
-    # In a real implementation, we would extract 'auth_token' and 'ct0' cookies,
-    # generate dynamic GraphQL query headers, hit '/i/api/graphql/UserTweets',
-    # parse the complex JSON instructions, and paginate using the 'cursor' mechanism.
+    clean_target_username = target_username.lower().replace("@", "")
+    log_debug(f"API Modu başlatıldı. {clean_target_username} için {start_datetime} - {end_datetime} arası hedefleniyor.")
 
-    # For now, we will just simulate a brief delay and log that the API mode was called successfully
-    time.sleep(2)
-    log_debug("API Modu şu anda geliştirme aşamasındadır (Placeholder). Selenium kullanılmadan geçildi.")
+    cookies = driver.get_cookies()
+    c_dict = {c['name']: c['value'] for c in cookies}
+    ct0 = c_dict.get('ct0')
+
+    if not ct0:
+        log_debug("Hata: Çerezlerde ct0 token bulunamadı.")
+        return collected_data
+
+    headers = {
+        'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+        'x-csrf-token': ct0,
+        'cookie': '; '.join([f'{k}={v}' for k, v in c_dict.items()]),
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
+    # 1. Get User ID
+    variables_user = {"screen_name":clean_target_username,"withSafetyModeUserFields":True}
+    features_user = {"hidden_profile_likes_enabled":True,"hidden_profile_subscriptions_enabled":True,"responsive_web_graphql_exclude_directive_enabled":True,"verified_phone_label_enabled":False,"subscriptions_verification_info_is_identity_verified_enabled":True,"subscriptions_verification_info_verified_since_enabled":True,"highlights_tweets_tab_ui_enabled":True,"responsive_web_twitter_article_notes_tab_enabled":True,"creator_subscriptions_tweet_preview_api_enabled":True,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":False,"responsive_web_graphql_timeline_navigation_enabled":True}
+    url_user = "https://twitter.com/i/api/graphql/IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName"
+
+    try:
+        resp_user = requests.get(url_user, headers=headers, params={'variables': json.dumps(variables_user), 'features': json.dumps(features_user)})
+        if resp_user.status_code != 200:
+            log_debug(f"Kullanıcı ID alınamadı: {resp_user.status_code}")
+            return collected_data
+        user_id = resp_user.json()['data']['user']['result']['rest_id']
+    except Exception as e:
+        log_debug(f"Kullanıcı API isteği hatası: {e}")
+        return collected_data
+
+    log_debug(f"Kullanıcı ID bulundu: {user_id}")
+
+    # 2. Get Tweets paginated
+    features_tweets = {"rweb_tipjar_consumption_enabled":True,"responsive_web_graphql_exclude_directive_enabled":True,"verified_phone_label_enabled":False,"creator_subscriptions_tweet_preview_api_enabled":True,"responsive_web_graphql_timeline_navigation_enabled":True,"responsive_web_graphql_skip_user_profile_image_extensions_enabled":False,"communities_web_enable_tweet_community_results_fetch":True,"c9s_tweet_anatomy_moderator_badge_enabled":True,"articles_preview_enabled":True,"tweetypie_unmention_optimization_enabled":True,"responsive_web_edit_tweet_api_enabled":True,"graphql_is_translatable_rweb_tweet_is_translatable_enabled":True,"view_counts_everywhere_api_enabled":True,"longform_notetweets_consumption_enabled":True,"responsive_web_twitter_article_tweet_consumption_enabled":True,"tweet_awards_web_tipping_enabled":False,"creator_subscriptions_quote_tweet_preview_enabled":False,"freedom_of_speech_not_reach_fetch_enabled":True,"standardized_nudges_misinfo":True,"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled":True,"rweb_video_timestamps_enabled":True,"longform_notetweets_rich_text_read_enabled":True,"longform_notetweets_inline_media_enabled":True,"responsive_web_enhance_cards_enabled":False}
+
+    cursor = None
+    keep_fetching = True
+    consecutive_old = 0
+
+    while keep_fetching:
+        if stop_requested:
+            break
+
+        variables_tweets = {"userId":user_id,"count":20,"includePromotedContent":True,"withQuickPromoteEligibilityTweetFields":True,"withVoice":True,"withV2Timeline":True}
+        if cursor:
+            variables_tweets['cursor'] = cursor
+
+        url_tweets = "https://twitter.com/i/api/graphql/pQHADmT91zIY83UbK0x4Lw/UserTweets"
+        try:
+            resp = requests.get(url_tweets, headers=headers, params={'variables': json.dumps(variables_tweets), 'features': json.dumps(features_tweets)})
+            if resp.status_code != 200:
+                log_debug(f"API Yanıt Hatası: {resp.status_code}")
+                break
+
+            data = resp.json()
+            instructions = data['data']['user']['result']['timeline']['timeline']['instructions']
+        except Exception as e:
+            log_debug(f"API Parsing hatası: {e}")
+            break
+
+        new_cursor = None
+        for inst in instructions:
+            if inst['type'] == 'TimelineAddEntries':
+                for entry in inst['entries']:
+                    if entry['entryId'].startswith('tweet-'):
+                        tweet_data = entry['content']['itemContent']['tweet_results'].get('result', {})
+                        if tweet_data.get('__typename') == 'TweetWithVisibilityResults':
+                            tweet_data = tweet_data.get('tweet', {})
+
+                        if 'legacy' in tweet_data:
+                            legacy = tweet_data['legacy']
+                            t_datetime_str = legacy.get('created_at')
+                            if not t_datetime_str: continue
+                            t_datetime = parse_datetime(t_datetime_str)
+
+                            is_retweet_flag = 'retweeted_status_result' in legacy
+                            if is_retweet_flag:
+                                t_datetime_str = legacy['retweeted_status_result']['result']['legacy'].get('created_at')
+                                if t_datetime_str:
+                                    t_datetime = parse_datetime(t_datetime_str)
+
+                            author_username = tweet_data.get('core', {}).get('user_results', {}).get('result', {}).get('legacy', {}).get('screen_name', clean_target_username)
+
+                            if start_datetime <= t_datetime <= end_datetime:
+                                consecutive_old = 0
+
+                                if is_retweet_flag and author_username.lower() == clean_target_username.lower():
+                                    if only_retweets or include_retweets:
+                                        continue
+
+                                if only_retweets and not is_retweet_flag:
+                                    continue
+                                if is_retweet_flag and not include_retweets:
+                                    continue
+
+                                if not is_retweet_flag:
+                                    in_reply_to = legacy.get('in_reply_to_screen_name')
+                                    is_reply = bool(in_reply_to)
+
+                                    if not only_replies:
+                                        if is_reply: continue
+                                    else:
+                                        if not is_reply:
+                                            txt = legacy.get('full_text', '')
+                                            if not txt.startswith('@'): continue
+
+                                link = f"https://x.com/{author_username}/status/{tweet_data['rest_id']}"
+                                if search_keyword:
+                                    txt = legacy.get('full_text', '').lower()
+                                    if search_keyword.lower() not in txt:
+                                        continue
+
+                                if link and link not in collected_links:
+                                    collected_links.add(link)
+                                    collected_data.append({
+                                        "Date": t_datetime,
+                                        "Link": link,
+                                        "Username": author_username
+                                    })
+                                    log_debug(f"Tweet bulundu (API): {t_datetime} - {link} (Kullanıcı: {author_username})")
+
+                            elif t_datetime < start_datetime:
+                                consecutive_old += 1
+                                if consecutive_old >= 20:
+                                    keep_fetching = False
+                                    break
+                            else:
+                                consecutive_old = 0
+
+                    elif entry['entryId'].startswith('cursor-bottom-'):
+                        new_cursor = entry['content']['value']
+
+        if not keep_fetching or not new_cursor or new_cursor == cursor:
+            break
+        cursor = new_cursor
+        time.sleep(0.5)
 
     return collected_data
 
