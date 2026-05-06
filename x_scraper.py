@@ -601,6 +601,28 @@ def get_reply_info(article):
     except Exception as e:
         return False, None
 
+def scrape_tweets_api(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
+    """
+    A placeholder for the hidden GraphQL API scraping approach.
+    It leverages the existing session cookies from the driver/requests.
+    """
+    global stop_requested
+    collected_links = set()
+    collected_data = []
+
+    log_debug(f"API Modu başlatıldı. {target_username} (Test/Placeholder) için {start_datetime} - {end_datetime} arası hedefleniyor.")
+
+    # In a real implementation, we would extract 'auth_token' and 'ct0' cookies,
+    # generate dynamic GraphQL query headers, hit '/i/api/graphql/UserTweets',
+    # parse the complex JSON instructions, and paginate using the 'cursor' mechanism.
+
+    # For now, we will just simulate a brief delay and log that the API mode was called successfully
+    time.sleep(2)
+    log_debug("API Modu şu anda geliştirme aşamasındadır (Placeholder). Selenium kullanılmadan geçildi.")
+
+    return collected_data
+
+
 def scrape_tweets(driver, target_username, start_datetime, end_datetime, search_keyword=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False):
     if scrape_mode == 'list':
         profile_url = target_username
@@ -876,6 +898,30 @@ def save_to_excel(data, output_file=OUTPUT_FILE):
         print(f"Excel kaydetme hatası: {e}", flush=True)
         return False, [], None
 
+def is_fast_mode_enabled():
+    try:
+        import pymysql
+        import json
+        with open('config.json', 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        conn = pymysql.connect(
+            host=config.get('mysql_host', 'localhost'),
+            port=config.get('mysql_port', 3306),
+            user=config.get('mysql_user', 'root'),
+            password=config.get('mysql_password', ''),
+            database=config.get('mysql_database', 'xscraper_db'),
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT fast_mode FROM settings LIMIT 1")
+            result = cursor.fetchone()
+            if result and result.get('fast_mode') == 1:
+                return True
+    except Exception as e:
+        log_debug(f"Fast mode check error: {e}")
+    return False
+
 def run_process(username, password, target_username, start_date_str, end_date_str, start_time_str="00:00", end_time_str="23:59", output_file=OUTPUT_FILE, search_keyword=None, status_callback=None, interaction_callback=None, scrape_mode='profile', only_replies=False, include_retweets=False, only_retweets=False, start_datetime_obj=None, end_datetime_obj=None, skip_excel=False):
     global stop_requested
     stop_requested = False
@@ -926,11 +972,19 @@ def run_process(username, password, target_username, start_date_str, end_date_st
         targets = [t.strip() for t in target_username.split(',') if t.strip()]
         all_data = []
         
+        fast_mode = is_fast_mode_enabled()
+        if fast_mode:
+            log("Sistem 'Hızlı Mod (API)' ayarlarına göre çalıştırılıyor.")
+
         for i, target in enumerate(targets):
             if stop_requested: break
             log(f"{scrape_mode} hedefi taranıyor: {target} ({i+1}/{len(targets)})...")
             try:
-                target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, include_retweets, only_retweets)
+                if fast_mode:
+                    target_data = scrape_tweets_api(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, include_retweets, only_retweets)
+                else:
+                    target_data = scrape_tweets(driver, target, start_datetime, end_datetime, search_keyword, scrape_mode, only_replies, include_retweets, only_retweets)
+
                 if target_data:
                     # In profile mode, we want to keep the order per target, sorted by date
                     # In list mode, we might get mixed results, but we'll sort everything at the end

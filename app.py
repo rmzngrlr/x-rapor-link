@@ -328,6 +328,7 @@ def admin_trigger_scrape_target(target_id):
 def admin_update_settings():
     start_hour = request.form.get('start_hour', type=int, default=0)
     interval_hours = request.form.get('interval_hours', type=int, default=6)
+    fast_mode = 1 if request.form.get('fast_mode') == 'on' else 0
     new_password = request.form.get('new_password')
 
     if start_hour < 0 or start_hour > 23:
@@ -346,9 +347,9 @@ def admin_update_settings():
                 cursor.execute("SELECT COUNT(*) as count FROM settings")
                 result = cursor.fetchone()
                 if result['count'] == 0:
-                    cursor.execute("INSERT INTO settings (start_hour, interval_hours) VALUES (%s, %s)", (start_hour, interval_hours))
+                    cursor.execute("INSERT INTO settings (start_hour, interval_hours, fast_mode) VALUES (%s, %s, %s)", (start_hour, interval_hours, fast_mode))
                 else:
-                    cursor.execute("UPDATE settings SET start_hour = %s, interval_hours = %s", (start_hour, interval_hours))
+                    cursor.execute("UPDATE settings SET start_hour = %s, interval_hours = %s, fast_mode = %s", (start_hour, interval_hours, fast_mode))
 
                 # Check and update password if provided
                 if new_password:

@@ -62,9 +62,15 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS settings (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     start_hour INT NOT NULL DEFAULT 0,
-                    interval_hours INT NOT NULL DEFAULT 6
+                    interval_hours INT NOT NULL DEFAULT 6,
+                    fast_mode TINYINT(1) NOT NULL DEFAULT 0
                 )
             """)
+
+            try:
+                cursor.execute("ALTER TABLE settings ADD COLUMN fast_mode TINYINT(1) NOT NULL DEFAULT 0")
+            except Exception as alt_e:
+                pass
 
             # Table: admin_users
             cursor.execute("""
